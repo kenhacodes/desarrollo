@@ -20,14 +20,18 @@ struct TShip{
 	zoro::Vec2 pos = {400.0f, 400.0f};
 	zoro::Vec2 speed = {0.0f,0.0f};
   zoro::Vec2 acceleration = {0.0f,0.0f};
+  // Shape
   zoro::Vec3 *g_points;
   zoro::Vec2 *dr_points;
+  
   zoro::Vec3 *g_Fuelpoints;
   zoro::Vec2 *dr_Fuelpoints;
+  
+  ast::rgb color = {255, 255, 255};
+
   int kNPoints = 5;
   float scale = 50.0f;
   float angle = 0.0f;
-	ast::rgb color = {255, 255, 255};
   bool IsPressing = false;
   bool isPaintingFuel = false;
 };
@@ -44,42 +48,40 @@ struct TUser{
 
 TShip ship;
 
-ast::TAsteroid *asteroids;
-ast::TAsteroid asteroidTest;
-ast::TAsteroid asteroidTest1;
-ast::TAsteroid asteroidTest2;
-ast::TAsteroid asteroidTest3;
-
 ast::TAsteroidData *astDataTypes;
+ast::TAsteroid *asteroids;
+ast::TAsteroid asteroidTest; // test
 
-unsigned char fps=60; //Control de frames por segundo
+//    TIME VARIABLES
+unsigned char fps=60; 
 double current_time,last_time;
 
 float sprFuelTimeRef = 100.0f;
 double sprFuelTime = 0.0;
 
+ast::TAsteroid randomAsteroid(){
+  ast::TAsteroid asteroidNew;
+  asteroidNew.pos.x = 0.0f + rand()%50;
+  asteroidNew.pos.y = 0.0f + rand()%50;
+  if (rand()%2 == 1) asteroidNew.pos.x += 750.0f;
+  if (rand()%2 == 1) asteroidNew.pos.y += 750.0f;
+  asteroidNew.size = ast::BIG;
+  asteroidNew.type = rand()%3;
+  int dir = (rand()%628)*0.01;
+  asteroidNew.dir = zoro::NormalizeVec2({cosf(dir), sinf(dir)});
+  printf("\nPos x:%f y:%f", asteroidNew.pos.x,asteroidNew.pos.y);
+  return asteroidNew;
+}
+
 void init(){
   
-  asteroids = nullptr;
-  
-  asteroidTest.pos = {400.0f, 400.0f};
-  asteroidTest.size = ast::SMALL;
-  asteroidTest.type = 0;
-  asteroidTest.dir = {1.0f, 0.2f};
-  asteroidTest.next = nullptr;
-
-  
-
-  ast::Insert(&asteroids, asteroidTest);
-  
-  asteroidTest.pos = {200.0f, 400.0f};
-  asteroidTest.type = 1;
-  ast::Insert(&asteroids, asteroidTest);
-  
-  asteroidTest.pos = {400.0f, 200.0f};
-  asteroidTest.type = 2;
-  ast::Insert(&asteroids, asteroidTest);
-  
+  ast::InitList(&asteroids);
+  printf("\n->%d", asteroids);
+  for (int i = 0; i < 5; i++)
+  {
+    ast::Insert(&asteroids, randomAsteroid());
+    printf("\n->%d", asteroids);
+  }
 }
 
 void initAstData(){
@@ -228,43 +230,47 @@ void paintShip(TShip p_ship){
   }
 }
 
-void moveAsteroid(ast::TAsteroid *p_asteroid){
+void moveAsteroid(ast::TAsteroid **p_asteroid){
   
-  p_asteroid->pos = zoro::SumVec2(p_asteroid->pos, zoro::ScaleVec2(p_asteroid->dir, p_asteroid->speed));
+  (*(p_asteroid))->pos = zoro::SumVec2((*(p_asteroid))->pos, zoro::ScaleVec2((*(p_asteroid))->dir, (*(p_asteroid))->speed));
   
-  if (p_asteroid->pos.x > 800) p_asteroid->pos.x = 1;
-  if (p_asteroid->pos.x < 0) p_asteroid->pos.x = 799;
-  if (p_asteroid->pos.y > 800) p_asteroid->pos.y = 1;
-  if (p_asteroid->pos.y < 0) p_asteroid->pos.y = 799;
+  if ((*(p_asteroid))->pos.x > 800) (*(p_asteroid))->pos.x = 1;
+  if ((*(p_asteroid))->pos.x < 0) (*(p_asteroid))->pos.x = 799;
+  if ((*(p_asteroid))->pos.y > 800) (*(p_asteroid))->pos.y = 1;
+  if ((*(p_asteroid))->pos.y < 0) (*(p_asteroid))->pos.y = 799;
 }
 
-void paintAsteroid(ast::TAsteroid *p_asteroid){
+void paintAsteroid(ast::TAsteroid **p_asteroid){
   zoro::Mat3 m = zoro::MatIdentity3();
   
-  m = zoro::Mat3Multiply(zoro::Mat3Translate(p_asteroid->pos), m);
+  m = zoro::Mat3Multiply(zoro::Mat3Translate((*(p_asteroid))->pos), m);
 	m = zoro::Mat3Multiply(zoro::Mat3Scale(	50, 50), m);
-	m = zoro::Mat3Multiply(zoro::Mat3Rotate( p_asteroid->angle), m);
+	m = zoro::Mat3Multiply(zoro::Mat3Rotate( (*(p_asteroid))->angle), m);
 
-  ast::TAsteroidData temp = *(astDataTypes+p_asteroid->type);
+  ast::TAsteroidData temp = *(astDataTypes+(*(p_asteroid))->type);
 
   for (int i = 0; i < temp.kNPoints; i++)
 	{
 		zoro::Vec3 tmp = zoro::Mat3TransformVec3(m, *( temp.g_points + i));
 		*(temp.dr_points + i) = {tmp.x, tmp.y};
 	}
-  esat::DrawSetStrokeColor(p_asteroid->color.r,p_asteroid->color.g,p_asteroid->color.b,255);
-	esat::DrawSetFillColor(p_asteroid->color.r,p_asteroid->color.g,p_asteroid->color.b,10);
+  /*
+  esat::DrawSetStrokeColor((*(p_asteroid))->color.r,(*(p_asteroid))->color.g,(*(p_asteroid))->color.b,255);
+	esat::DrawSetFillColor((*(p_asteroid))->color.r,(*(p_asteroid))->color.g,(*(p_asteroid))->color.b,10);
+  */
+  esat::DrawSetStrokeColor(255,255,255,255);
+	esat::DrawSetFillColor(255,255,255,10);
 	esat::DrawSolidPath(&temp.dr_points[0].x, temp.kNPoints);
 }
 
 void asteroidManager(ast::TAsteroid *p_asteroid){
-  ast::TAsteroid* p = p_asteroid;
-  
+  ast::TAsteroid *p = p_asteroid;
+  printf("\n....");
   while (p != nullptr)
   {
-    printf("\nx %.f - y: %.f", p->pos.x, p->pos.y);
-    moveAsteroid(p);
-    paintAsteroid(p);
+    moveAsteroid(&p);
+    paintAsteroid(&p);
+    //printf("\nPos x:%f y:%f", p->pos.x,p->pos.y);
     p = p->next;
   }
 }
@@ -323,6 +329,8 @@ void ClearDrawCoolEffectUwU(){
 
 int esat::main(int argc, char **argv) {
 
+  srand(time(NULL));
+
 	esat::WindowInit(800,800);
 	WindowSetMouseVisibility(true);
 
@@ -335,16 +343,13 @@ int esat::main(int argc, char **argv) {
   	last_time = esat::Time(); 
   	esat::DrawBegin();
   	esat::DrawClear(0,0,0,255);
-    ClearDrawCoolEffectUwU();
+    //ClearDrawCoolEffectUwU();
 
     input();
     movementShip();
     paintShip(ship);
-    
-    paintAsteroid(&asteroidTest);
-    moveAsteroid(&asteroidTest);
-    
-    //asteroidManager(asteroids);
+    printf("\nPos x:%f y:%f", asteroids->pos.x,asteroids->pos.y);
+    asteroidManager(asteroids);
     
   	esat::DrawEnd();
     
@@ -353,7 +358,7 @@ int esat::main(int argc, char **argv) {
   		current_time = esat::Time();
   	}while((current_time-last_time)<=1000.0/fps);
   	esat::WindowFrame();
-}
+  }
   
   esat::WindowDestroy();
   return 0;

@@ -4,7 +4,7 @@
 
 namespace ast{
 
-  enum AsteroidBigness{
+  enum AsteroidSize{
     SMALL = 0,
     MID,
     BIG
@@ -22,22 +22,22 @@ namespace ast{
 
   struct TAsteroid{
     TAsteroid *next;
-    int type;
-    AsteroidBigness size;
+    AsteroidSize size;
     zoro::Vec2 pos = {400.0f, 400.0f};
     zoro::Vec2 dir = {2.5f, 1.5f};
+    rgb color = {255, 255, 255};
+    int type;
     float speed = 3.3f;
     float angle;
-    rgb color = {255, 255, 255};
     double birthTime;
   };
 
-  TAsteroid *InitList(TAsteroid **lista){
-	  return *(lista) = nullptr;
+  void InitList(TAsteroid **lista){
+	  *(lista) = nullptr;
   };
 
   bool IsEmpty(TAsteroid *Lista){
-	  return Lista == nullptr;	
+	  return (Lista == nullptr);	
   }
 
   int ListLength(TAsteroid *lista){
@@ -56,14 +56,11 @@ namespace ast{
   int Insert(TAsteroid **lista, TAsteroid asteroid){
   TAsteroid *nuevo;
 
-  if ((nuevo = (TAsteroid*) malloc (sizeof(TAsteroid))) == nullptr){
-    return 0;
-    
-  }else{
+  if ((nuevo = (TAsteroid*) malloc(1*sizeof(TAsteroid))) == nullptr)return 0; else{
     nuevo = &asteroid;
-    nuevo->next = nullptr;
-    if (IsEmpty(*lista))
-    {
+    nuevo->next = NULL;
+    printf("\nPos x:%f y:%f", nuevo->pos.x,nuevo->pos.y);
+    if (IsEmpty(*lista)){
       *lista = nuevo;
     }else{
       nuevo->next = *lista;
