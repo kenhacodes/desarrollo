@@ -55,10 +55,6 @@ Tvalorxy resolver2x2(Tecuacion re1, Tecuacion re2){
         y = (re1.ti+re2.ti)/(re1.y+re2.y);
         x = (auxiliar.ti + auxiliar.y*-1*y)/(auxiliar.x);
     }
-
-    
-    
-
     Tvalorxy res = {x,y, isIndeterminado, isIncompatible}; 
     return res;
 }

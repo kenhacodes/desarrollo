@@ -9,6 +9,7 @@
 #include <math.h>
 #include "asteroidsAPI.h"
 
+
 enum WindowState {
   MENU = 0,
   LOGIN,
@@ -67,23 +68,7 @@ void init(){
   asteroidTest.dir = {1.0f, 0.2f};
   asteroidTest.next = nullptr;
 
-  asteroidTest1.pos = {100.0f, 400.0f};
-  asteroidTest1.size = ast::SMALL;
-  asteroidTest1.type = 0;
-  asteroidTest1.dir = {-0.8f, 0.4f};
-  asteroidTest1.next = nullptr;
-
-  asteroidTest2.pos = {100.0f, 200.0f};
-  asteroidTest2.size = ast::SMALL;
-  asteroidTest2.type = 0;
-  asteroidTest2.dir = {0.2f, -0.3f};
-  asteroidTest2.next = nullptr;
-
-  asteroidTest3.pos = {250.0f, 250.0f};
-  asteroidTest3.size = ast::SMALL;
-  asteroidTest3.type = 0;
-  asteroidTest3.dir = {0.3f, 0.7f};
-  asteroidTest3.next = nullptr;
+  
 
   ast::Insert(&asteroids, asteroidTest);
   
@@ -358,12 +343,7 @@ int esat::main(int argc, char **argv) {
     
     paintAsteroid(&asteroidTest);
     moveAsteroid(&asteroidTest);
-    paintAsteroid(&asteroidTest1);
-    moveAsteroid(&asteroidTest1);
-    paintAsteroid(&asteroidTest2);
-    moveAsteroid(&asteroidTest2);
-    paintAsteroid(&asteroidTest3);
-    moveAsteroid(&asteroidTest3);
+    
     //asteroidManager(asteroids);
     
   	esat::DrawEnd();
