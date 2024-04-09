@@ -20,6 +20,11 @@ Tbarbol* insertar_barbol(int value, Tbarbol *tleft, Tbarbol *tright){
 
 }
 
+void printLeaf(Tbarbol *leaf, int BaseSpace, int depth){
+  for (int i = 1; i < BaseSpace + depth*3; i++) printf(" ");
+  printf("%03d\n", leaf->info);
+}
+
 void paintLeaf(Tbarbol *tree, int BaseSpace, int depth){
   
   Tbarbol *point = tree;
@@ -31,21 +36,26 @@ void paintLeaf(Tbarbol *tree, int BaseSpace, int depth){
   if(point->left != nullptr) paintLeaf(point->left, BaseSpace, ++depth);
 }
 
-
-
 void MostrarArbol(Tbarbol *tree, int BaseSpace){
   
   paintLeaf(tree, BaseSpace, 0);
   printf("\n------------ Other version ----------------\n");
 
-  int maxDepth = 2;
+  int maxDepth = 0;
   int depth = 0;
-  bool lookRight = true;
+  bool end = false;
+
+  Tbarbol* endPoint = tree;
   Tbarbol* point = tree;
   
   Tbarbol* level = (Tbarbol*) malloc(maxDepth * sizeof(Tbarbol));
 
-  while (point->left != nullptr && depth != maxDepth+1)
+  while (endPoint->left != nullptr){
+    maxDepth++;                                     // Only works if the max depth its the same for everything
+    endPoint = endPoint->left;
+  } 
+
+  while (!end)
   {    
     while (point->right != nullptr)
     {
@@ -53,24 +63,25 @@ void MostrarArbol(Tbarbol *tree, int BaseSpace){
       depth++;
       point = point->right;
     };
-
-    for (int i = 1; i < BaseSpace + depth*3; i++) printf(" ");
-    printf("%03d\n", point->info);
+    printLeaf(point, BaseSpace, depth);
 
     depth--;
     point = (level+depth);
-    
-    for (int i = 1; i < BaseSpace + depth*3; i++) printf(" ");
-    printf("%03d\n", point->info);
+    printLeaf(point, BaseSpace, depth);
 
-    depth-=2;
-    point = (level+depth)->left;
+    depth++;
+    point = point->left;
+    printLeaf(point, BaseSpace, depth);
+
+    if (depth-2 < 0 || point == endPoint) end = true;
+    else{
+      depth-=2;
+      point = (level+depth);
+      printLeaf(point, BaseSpace, depth);
+
+      depth++;
+      point = point->left;
+    } 
   }
-  
-
-  
-
-
-  
 }
 
