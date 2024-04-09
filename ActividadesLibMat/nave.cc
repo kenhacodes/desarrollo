@@ -15,12 +15,12 @@ struct rgb
 };
 
 struct TShip{
-	zoro::Vec2D pos = {400.0f, 400.0f};
-	zoro::Vec2D speed = {0.0f,0.0f};
-  zoro::Vec2D g_points[3];
+	zoro::Vec2 pos = {400.0f, 400.0f};
+	zoro::Vec2 speed = {0.0f,0.0f};
+  zoro::Vec2 g_points[3];
   float radius = 50.0f;
   float angle = 0.0f;
-  zoro::Vec2D acceleration = {0.0f,0.0f};
+  zoro::Vec2 acceleration = {0.0f,0.0f};
 	rgb color = {255, 5, 5};
 };
 
@@ -72,8 +72,8 @@ void movementShip(){
   if (ship.pos.y > 800) ship.pos.y = 1;
   if (ship.pos.y < 0) ship.pos.y = 799;
 
-  ship.speed = zoro::SumVec2D(zoro::ScaleVec2D(ship.speed,0.988), ship.acceleration);
-  ship.pos = zoro::SumVec2D(ship.pos, ship.speed);
+  ship.speed = zoro::SumVec2(zoro::ScaleVec2(ship.speed,0.988), ship.acceleration);
+  ship.pos = zoro::SumVec2(ship.pos, ship.speed);
 }
 
 unsigned char fps=60; //Control de frames por segundo

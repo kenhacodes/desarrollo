@@ -69,7 +69,7 @@ struct Triangle2{
   Vec2 p[3];
 };
 
-struct Square2{
+struct Squaec2{
   Vec2 p[4];
 };
 
@@ -466,9 +466,64 @@ void PrintMat4(Mat4 m){
           m.m[3], m.m[7], m.m[11], m.m[15]);
 }
 
+// - Ecuations -
+
+Vec2 Ec2x2old(Vec3 ec1, Vec3 ec2){
+    Vec3 aux = ec1;
+    Vec2 res;
+    bool isNotDetermined = false;
+    bool isNotCompatible = false;
+    if(ec1.x == 0 || ec2.x == 0){
+        ec1.x *= ec2.y;
+        ec1.y *= ec2.y;
+        ec1.z *= ec2.y;
+
+        ec2.x *= -aux.y;
+        ec2.y *= -aux.y;
+        ec2.z *= -aux.y;
+    }else{
+        ec1.x *= ec2.x;
+        ec1.y *= ec2.x;
+        ec1.z *= ec2.x;
+
+        ec2.x *= -aux.x;
+        ec2.y *= -aux.x;
+        ec2.z *= -aux.x;
+    }
+    
+    if(ec1.x - ec2.x == 0 && ec1.y - ec2.y == 0 && ec1.z - ec2.z != 0){
+        res.x=0;
+        res.y=0;
+        isNotCompatible = true;
+    }
+    else if(ec1.x - ec2.x*-1 == 0 && ec1.y - ec2.y*-1==0 && ec1.z - ec2.z*-1==0){
+        res.x=0;
+        res.y=0;
+        isNotDetermined = true;
+    }else{
+        res.y = (ec1.z+ec2.z)/(ec1.y+ec2.y);
+        res.x = (aux.z + aux.y*-1*res.y)/(aux.x);
+    }
+    
+    return res;
+}
+
+Vec2 Ec2x2(Vec3 ec1, Vec3 ec2){
+  Vec2 res = {0.0f, 0.0f};
+
+  float temp = ec1.x * ec2.y - ec2.x * ec1.y;
+  if( temp < 0.0001 && temp > -0.0001 ) return res;
+  if(ec1.x - ec2.x == 0 && ec1.y - ec2.y == 0 && ec1.z - ec2.z != 0) return res;
+  
+  res.x = ((ec1.z * ec2.y) - (ec1.y * ec2.z)) / ((ec1.x * ec2.y) - (ec1.y * ec2.x));
+  res.y = ((ec1.x * ec2.z) - (ec1.z * ec2.x)) / ((ec1.x * ec2.y) - (ec1.y * ec2.x));
+
+  return res; 
+}
+
 // - Shapes -
 
-float AreaSquare2(Square2 s){
+float AreaSquaec2(Squaec2 s){
   return (s.p->x * s.p->y);
 }
 float AreaCircle2(Circle2 c){

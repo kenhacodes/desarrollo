@@ -9,10 +9,10 @@
 #include <math.h>
 #include "zorolib.h"
 
-zoro::Circle2D inner;
-zoro::Circle2D outer;
-zoro::Vec2D g_points[302];
-//zoro::Vec2D g_pointsouter[200];
+zoro::Circle2 inner;
+zoro::Circle2 outer;
+zoro::Vec2 g_points[302];
+//zoro::Vec2 g_pointsouter[200];
 //float normalAngle = (6.28f / 100) + (zoro::PI/2);
 float normalAngle = (6.28f / 100);
 float offset = (-3.14/4);
@@ -23,7 +23,7 @@ double current_time,last_time;
 int percentage = 0;
 int counter = 0;
 
-void paintCircle(zoro::Circle2D circle){
+void paintCircle2(zoro::Circle2 circle){
 	for (int i = 0; i < 100; i++)
 	{
 		g_points[i].x = cos(normalAngle * i) * circle.radius + circle.c.x;
@@ -37,8 +37,8 @@ void paintCircle(zoro::Circle2D circle){
 
 void paintDaThing(){
 
-  //paintCircle(inner);
-  //paintCircle(outer);
+  //paintCircle2(inner);
+  //paintCircle2(outer);
   
   int red = 240 + (-240) * (percentage*0.01);
   int green = 1 + (250- 1) * (percentage*0.01);
@@ -59,14 +59,14 @@ void paintDaThing(){
   }
 
   // Middle area
-  zoro::Vec2D inicio = g_points[percentage-1];
-  zoro::Vec2D final;
+  zoro::Vec2 inicio = g_points[percentage-1];
+  zoro::Vec2 final;
 
   final.x = cos(offset+normalAngle * (percentage)) * outer.radius + outer.c.x;
   final.y = sin(offset+normalAngle * (percentage)) * outer.radius + outer.c.y;
   
-  zoro::Vec2D linea = zoro::SubtractVec2D(inicio, final);
-  float m = zoro::MagnitudeVec2D(linea);
+  zoro::Vec2 linea = zoro::SubtractVec2(inicio, final);
+  float m = zoro::MagnitudeVec2(linea);
   zoro::NrmlizeV2(&linea);
   float step = m/100;
   float angle = atan2(inicio.y-final.y, inicio.x-final.x);
