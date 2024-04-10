@@ -7,9 +7,9 @@ struct tbbarbol
   tbbarbol *left, *right;
 };
 
-struct pila{
+struct pile{
   tbbarbol* value;
-  pila* next;
+  pile* next;
 };
 
 tbbarbol* crear_barbol(){
@@ -58,6 +58,12 @@ void insertar_barbol(tbbarbol** tree, int value){
    }
 }
 
+void printLeaf(tbbarbol *leaf, int BaseSpace, int depth){
+  for (int i = 1; i < BaseSpace + depth*3; i++) printf(" ");
+  printf("%03d\n", leaf->info);
+
+}
+
 void paintLeaf(tbbarbol *tree, int BaseSpace, int depth){
   tbbarbol *point = tree;
   if (point->right != nullptr) paintLeaf(point->right, BaseSpace, depth+1);
@@ -73,11 +79,97 @@ void MostrarArbol(tbbarbol* tree, int BaseSpace){
   printf("Pintado.");
 }
 
+bool isEmptyPile(pile *p){
+  return (p==NULL);
+}
+
+void addToPile(pile **pila, tbbarbol* tree){
+
+  pile* nuevo = (pile*) malloc(1*sizeof(pile));
+  
+  nuevo->value = tree;
+  nuevo->next = nullptr;
+  if (isEmptyPile(*pila))
+  {
+    *pila = nuevo;
+  }else{
+    nuevo->next =*pila;
+    *pila = nuevo;
+  }
+}
+
+void printPile(pile* pila){
+  /*
+  pile* p = pila;
+  printf("(");
+  while(p != nullptr){
+    printf("%d.",p->value->info);
+    p = p->next;
+  }
+  printf(")");
+  */
+  
+}
+
+void PopPile(pile** pila){
+  pile *p;
+  if (!isEmptyPile(*pila))
+  {
+    p = *pila;
+    *pila = +p->next;
+    free(p);
+  }
+}
+
 void inorden(tbbarbol* tree){
 
-  int depth = 0;
-  bool end = false;
+  tbbarbol* p = tree;
+  tbbarbol* endPoint = tree;
+  pile* pila = nullptr;
 
+  while (endPoint->left != nullptr) endPoint = endPoint->left;
+
+  while (p != endPoint)
+  {
+    //printf(" ! ");
+    while (p->left != nullptr)
+    {
+      addToPile(&pila, p);
+      p = p->left;
+    };
+    
+
+    printf(" %d", p->info);   
+    p = pila->value;
+    PopPile(&pila);  
+    
+    printPile(pila);
+    
+    printf(" %d", p->info);  
+     
+    PopPile(&pila);     
+        
+    p = p->right;             
+    addToPile(&pila,p); 
+    
+      
+
+    if(p->left == nullptr){
+
+      printf(" %du", p->info); 
+      
+      PopPile(&pila);         
+      
+      if (p->right != nullptr)
+      {
+        p = p->right;
+        
+        addToPile(&pila,p);
+      }
+    }
+    
+    
+  }
 }
 
 void preorden(tbbarbol* tree){
