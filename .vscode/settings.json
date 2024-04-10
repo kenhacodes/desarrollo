@@ -62,6 +62,7 @@
     "type_traits": "cpp",
     "vector": "cpp",
     "xstring": "cpp",
-    "xtree": "cpp"
+    "xtree": "cpp",
+    "xiosbase": "cpp"
   }
 }

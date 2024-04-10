@@ -44,7 +44,8 @@ void MostrarArbol(Tbarbol *tree, int BaseSpace){
   int maxDepth = 0;
   int depth = 0;
   bool end = false;
-
+  int i = 0;
+  int x = 0;
   Tbarbol* endPoint = tree;
   Tbarbol* point = tree;
   
@@ -54,7 +55,7 @@ void MostrarArbol(Tbarbol *tree, int BaseSpace){
     maxDepth++;                                     // Only works if the max depth its the same for everything
     endPoint = endPoint->left;
   } 
-
+printf("->%d\n",maxDepth);
   while (!end)
   {    
     while (point->right != nullptr)
@@ -73,9 +74,15 @@ void MostrarArbol(Tbarbol *tree, int BaseSpace){
     point = point->left;
     printLeaf(point, BaseSpace, depth);
 
-    if (depth-2 < 0 || point == endPoint) end = true;
+    if (depth-(2+i)  < 0 || point == endPoint) end = true;
     else{
-      depth-=2;
+      depth-=2+i;
+      i++;
+      if (depth == i-x){
+        i = 0;
+        x++;
+      } 
+      
       point = (level+depth);
       printLeaf(point, BaseSpace, depth);
 

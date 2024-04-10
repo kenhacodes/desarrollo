@@ -12,7 +12,8 @@ int main(){
   
   barbol1=insertar_barbol(3,insertar_barbol(7,NULL,NULL),insertar_barbol(10,NULL,NULL));
   barbol1=insertar_barbol(15,barbol1,insertar_barbol(9,insertar_barbol(8,NULL,NULL),insertar_barbol(10,NULL,NULL)));
-  
+  barbol1=insertar_barbol(20,barbol1,insertar_barbol(3,insertar_barbol(7,insertar_barbol(7,NULL,NULL),insertar_barbol(10,NULL,NULL)),insertar_barbol(10,insertar_barbol(7,NULL,NULL),insertar_barbol(10,NULL,NULL))));
+  barbol1=insertar_barbol(0,barbol1,barbol1);
   //o bien
   //barbol2=insertar_barbol(20,insertar_barbol(12,NULL,NULL),insertar_barbol(13,NULL,NULL));
   //y luego barbol1=inserta_barbol(15,barbol1,barbol2);
