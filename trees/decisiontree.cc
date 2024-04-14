@@ -4,7 +4,7 @@
 struct tbbarbol
 {
   int info;
-  int contador = 1;
+  char *text; //32
   tbbarbol *left, *right;
 };
 
@@ -27,7 +27,6 @@ void insertar_barbol(tbbarbol** tree, int value){
 
   tbbarbol *res = (tbbarbol*) malloc(1*sizeof(tbbarbol));
   res->info = value;
-  res->contador = 1;
   res->left = nullptr;
   res->right = nullptr;
 
@@ -40,10 +39,7 @@ void insertar_barbol(tbbarbol** tree, int value){
     printf(".");
     do
     {
-      if (p->info == value) {
-        p->contador++;
-        return;
-      }
+      if (p->info == value) return;
 
       if (p->info < value){
         if (p->right == nullptr){
@@ -65,7 +61,7 @@ void insertar_barbol(tbbarbol** tree, int value){
 
 void printLeaf(tbbarbol *leaf, int BaseSpace, int depth){
   for (int i = 1; i < BaseSpace + depth*3; i++) printf(" ");
-  printf("%03d (%02d)\n", leaf->info, leaf->contador);
+  printf("%03d\n", leaf->info);
 
 }
 
@@ -74,7 +70,7 @@ void paintLeaf(tbbarbol *tree, int BaseSpace, int depth){
   if (point->right != nullptr) paintLeaf(point->right, BaseSpace, depth+1);
   
   for (int i = 1; i < BaseSpace + depth*3; i++) printf(" ");
-  printf("%03d (%02d)\n", point->info, point->contador);
+  printf("%03d (%02d)\n", point->info);
   
   if(point->left != nullptr) paintLeaf(point->left, BaseSpace, ++depth);
 }
@@ -162,13 +158,11 @@ void inorden(tbbarbol* tree){
     if(p->left == nullptr){
 
       printf(" %d", p->info); 
-      
       PopPile(&pila);         
       
       if (p->right != nullptr)
       {
         p = p->right;
-        
         addToPile(&pila,p);
       }
     }
