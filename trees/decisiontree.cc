@@ -166,8 +166,6 @@ void inorden(tbbarbol* tree){
         addToPile(&pila,p);
       }
     }
-    
-    
   }
 }
 

@@ -116,62 +116,115 @@ void printPile(pile* pila){
   
 }
 
-pile* PopPile(pile** pila){
-  pile *p, *res;
-  res = *pila;
-  if (!isEmptyPile(*pila))
-  {
-    p = *pila;
-    *pila = p->next;
-    free(p);
-  }
-  return res;
-  
-}
-
 void inorden(tbbarbol* tree){
 
   tbbarbol* p = tree;
-  tbbarbol* temp = tree;
   pile* pila = nullptr;
+  bool end = false;
 
-  while (true)
+  while (!end)
   {
     if (p->left != nullptr)
     {
       addToPile(&pila, p);
       p = p->left;
-      //printf("(%d)", pila->value->info);
-
     }else{
-      printf("%d ", p->info);
-      p = pila->value;
-      pila = pila->next;
-      if (p == nullptr) break;
-      
-      p->left = nullptr;
-      printf("%d ", p->info);
+      printf("% 3d ", p->info);
 
-      temp = p;
-      p = nullptr;
-      p = temp->right;
+      if (p->right != nullptr) p = p->right;
+      else if (pila == nullptr) end = true;
+      else{
+        
+        p = pila->value;
+        pila = pila->next;
+        printf("% 3d ", p->info);
+        p = p->right;
+        
+      }
     }
-    
   }
-  
-  
-    
-  
 }
 
 void preorden(tbbarbol* tree){
 
+  tbbarbol* p = tree;
+  pile* pila = nullptr;
+  bool end = false;
+  
+  while (!end)
+  {
+    printf("% 3d ", p->info);
+
+    if (p->left != nullptr)
+    {
+      addToPile(&pila, p);
+      p = p->left;
+    }else if (p->right != nullptr) p = p->right;
+    else{
+      if (pila == nullptr) end = true;
+      else{
+        p = pila->value;
+        pila = pila->next;
+        p = p->right;
+      }
+    }
+  }
 }
 
 void postorden(tbbarbol* tree){
-
+  tbbarbol* p = tree;
+  pile* pila = nullptr;
+  bool end = false;
+  
+  while (!end)
+  {
+    if (p->left != nullptr)
+    {
+      addToPile(&pila, p);
+      p = p->left;
+    }else if (p->right != nullptr)
+    {
+      addToPile(&pila, p);
+      p = p->right;
+    }else{
+      printf("% 3d ", p->info);
+      if (pila == nullptr) end = true;
+      else{
+        if (pila->value->right == p) pila->value->right = nullptr;
+        p = pila->value;
+        pila = pila->next;
+        p->left = nullptr;
+      }
+    }
+  }
 }
 
 tbbarbol* buscar_barbol(tbbarbol* tree, int value){
-  return tree;
+  tbbarbol* p = tree;
+  pile* pila = nullptr;
+  bool end = false;
+  
+  while (!end)
+  {
+    if (p->left != nullptr)
+    {
+      addToPile(&pila, p);
+      p = p->left;
+    }else if (p->right != nullptr)
+    {
+      addToPile(&pila, p);
+      p = p->right;
+    }else{
+      if (p->info = value) return p;
+      
+      if (pila == nullptr) end = true;
+      else{
+        if (pila->value->right == p) pila->value->right = nullptr;
+        p = pila->value;
+        pila = pila->next;
+        p->left = nullptr;
+      }
+    }
+  }
+  return nullptr;
 }
