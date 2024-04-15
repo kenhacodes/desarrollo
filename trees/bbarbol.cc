@@ -104,7 +104,7 @@ void addToPile(pile **pila, tbbarbol* tree){
 }
 
 void printPile(pile* pila){
-  /*
+  
   pile* p = pila;
   printf("(");
   while(p != nullptr){
@@ -112,69 +112,56 @@ void printPile(pile* pila){
     p = p->next;
   }
   printf(")");
-  */
+  
   
 }
 
-void PopPile(pile** pila){
-  pile *p;
+pile* PopPile(pile** pila){
+  pile *p, *res;
+  res = *pila;
   if (!isEmptyPile(*pila))
   {
     p = *pila;
-    *pila = +p->next;
+    *pila = p->next;
     free(p);
   }
+  return res;
+  
 }
 
 void inorden(tbbarbol* tree){
 
   tbbarbol* p = tree;
-  tbbarbol* endPoint = tree;
+  tbbarbol* temp = tree;
   pile* pila = nullptr;
 
-  while (endPoint->left != nullptr) endPoint = endPoint->left;
-
-  while (p != endPoint)
+  while (true)
   {
-    //printf(" ! ");
-    while (p->left != nullptr)
+    if (p->left != nullptr)
     {
       addToPile(&pila, p);
       p = p->left;
-    };
-    
+      //printf("(%d)", pila->value->info);
 
-    printf(" %d", p->info);   
-    p = pila->value;
-    PopPile(&pila);  
-    
-    printPile(pila);
-    
-    printf(" %d", p->info);  
-     
-    PopPile(&pila);     
-        
-    p = p->right;             
-    addToPile(&pila,p); 
-    
+    }else{
+      printf("%d ", p->info);
+      p = pila->value;
+      pila = pila->next;
+      if (p == nullptr) break;
       
+      p->left = nullptr;
+      printf("%d ", p->info);
 
-    if(p->left == nullptr){
-
-      printf(" %d", p->info); 
-      
-      PopPile(&pila);         
-      
-      if (p->right != nullptr)
-      {
-        p = p->right;
-        
-        addToPile(&pila,p);
-      }
+      temp = p;
+      p = nullptr;
+      p = temp->right;
     }
     
-    
   }
+  
+  
+    
+  
 }
 
 void preorden(tbbarbol* tree){
