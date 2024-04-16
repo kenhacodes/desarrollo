@@ -289,13 +289,12 @@ void paintShots(){
   
   while (p != nullptr)
   {
-    
     //DRAW
 		*(sqPoints+0) = p->pos;
 		*(sqPoints+1) = zoro::SumVec2(*(sqPoints+0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)),1));
 		*(sqPoints+2) = zoro::SumVec2(*(sqPoints+1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
 		*(sqPoints+3) = zoro::SumVec2(*(sqPoints+0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
-    //printf("\nPos-Shot-Paint x:%d y:%d", p->pos.x, p->pos.y);
+    
 		esat::DrawSetStrokeColor(255,255,255,255);
 		esat::DrawSetFillColor(255,255,255,255);
 		esat::DrawSolidPath(&sqPoints[0].x,4);
@@ -349,6 +348,11 @@ void asteroidManager(){
     paintAsteroid(p);
     p = p->next;
   }
+}
+
+void checkColision(){
+  
+  
 }
 
 void input(){
