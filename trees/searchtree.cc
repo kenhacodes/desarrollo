@@ -46,7 +46,4 @@ int main(){
   if(buscado!=NULL) printf("\nEncontrado. Nodo apuntado %d",buscado->info);
   else printf("\nNo encontrado");
   
-
-
-  
 return 0;}

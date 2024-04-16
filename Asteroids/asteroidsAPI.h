@@ -27,7 +27,7 @@ namespace ast{
     zoro::Vec2 dir = {2.5f, 1.5f};
     rgb color = {255, 255, 255};
     int type;
-    float speed = 3.3f;
+    float speed = 3.0f;
     float angle;
     double birthTime;
   };
@@ -53,21 +53,21 @@ namespace ast{
 	
 }
 
-  int Insert(TAsteroid **lista, TAsteroid asteroid){
-  TAsteroid *nuevo;
+  void InsertList(TAsteroid **lista, TAsteroid* in_asteroid){
+  
+  TAsteroid* nuevo = (TAsteroid*) malloc(sizeof(TAsteroid));
 
-  if ((nuevo = (TAsteroid*) malloc(1*sizeof(TAsteroid))) == nullptr)return 0; else{
-    nuevo = &asteroid;
-    nuevo->next = NULL;
-    printf("\nPos x:%f y:%f", nuevo->pos.x,nuevo->pos.y);
-    if (IsEmpty(*lista)){
-      *lista = nuevo;
-    }else{
-      nuevo->next = *lista;
-      *lista = nuevo;
-    }
-    return 1;
+  nuevo = in_asteroid;
+  nuevo->next = nullptr;
+
+  if (IsEmpty(*lista))
+  {
+    *lista = nuevo;
+  }else{
+    nuevo->next =*lista;
+    *lista = nuevo;
   }
+
 }
 
   void Delete(TAsteroid **lista, TAsteroid *asteroid){
