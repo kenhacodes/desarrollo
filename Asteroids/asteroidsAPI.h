@@ -14,10 +14,17 @@ namespace ast{
   	float r,g,b;
   };
   
+  struct TColPoints
+  {
+    zoro::Vec2 points;
+    TColPoints *next;
+  };
+  
   struct TAsteroidData{
     int kNPoints;
     zoro::Vec3 *g_points;
     zoro::Vec2 *dr_points; 
+    TColPoints col;
   };
 
   struct TAsteroid{
@@ -35,6 +42,14 @@ namespace ast{
   void InitList(TAsteroid **lista){
 	  *(lista) = nullptr;
   };
+
+  void GenerateAsteroidColPoints(TAsteroidData* data){
+  
+    for (int i = 0; i < data->kNPoints; i++)
+    {
+      
+    }
+}
 
   bool IsEmpty(TAsteroid *Lista){
 	  return (Lista == nullptr);	

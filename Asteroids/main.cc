@@ -59,7 +59,6 @@ TShip ship;
 
 ast::TAsteroidData *astDataTypes;
 ast::TAsteroid *asteroidList;
-ast::TAsteroid asteroidTest; // test
 
 TShot* shotlist;
 
@@ -72,8 +71,10 @@ double current_time,last_time;
 float sprFuelTimeRef = 100.0f;
 double sprFuelTime = 0.0;
 
-float shotLifespan = 10000.0f;
+float shotCooldownTimeRef = 100.0f;
+double shotCooldownTime = 0.0;
 
+float shotLifespan = 700.0f;
 
 ast::TAsteroid* randomAsteroid(){
   ast::TAsteroid* asteroidNew = (ast::TAsteroid*) malloc(sizeof(ast::TAsteroid));
@@ -85,13 +86,12 @@ ast::TAsteroid* randomAsteroid(){
   
   asteroidNew->size = ast::BIG;
   asteroidNew->speed = 2.0f;
-  asteroidNew->type = rand()%2;
+  asteroidNew->type = rand()%4;
   asteroidNew->color = {(float)50+rand()%200,(float)50+rand()%200,(float)50+rand()%200};
 
   int dir = (rand()%628)*0.1;
   asteroidNew->dir = zoro::NormalizeVec2({cosf(dir), sinf(dir)});
   
-  //printf("\nRANDOM Pos x:%f y:%f", asteroidNew->pos.x,asteroidNew->pos.y);
   return asteroidNew;
 }
 
@@ -99,12 +99,18 @@ void init(){
   
   ast::InitList(&asteroidList);
   shotlist = nullptr;
+  for (int i = 0; i < 4; i++)
+  {
+    ast::GenerateAsteroidColPoints((astDataTypes + i));
+  }
+  
+  
+  
 
   for (int i = 0; i < 5; i++)
   {
     ast::InsertList(&asteroidList, randomAsteroid());
   }
-
   // Pointers
 	sqPoints = (zoro::Vec2*)malloc(4*sizeof(zoro::Vec2));
 }
@@ -214,7 +220,6 @@ void resetShip(TShip *ship){
   *(ship->g_Fuelpoints + 0) = {-0.13f, +0.19f, 1.0f};
   *(ship->g_Fuelpoints + 1) = {-0.13f, -0.19f, 1.0f};
   *(ship->g_Fuelpoints + 2) = {-0.55f, +0.0f, 1.0f};
-
 }
 
 void paintShip(TShip p_ship){
@@ -275,12 +280,30 @@ void addShot(TShot s){
 
 void moveShots(){
   TShot* p = shotlist;
-
+  TShot* t;
   while (p != nullptr){
+ 
     p->pos = zoro::SumVec2(p->pos,zoro::ScaleVec2(p->dir,p->speed));
-    //printf("\nPos-Shot-Move x:%d y:%d", p->pos.x, p->pos.y);
-    p = p->next;
+
+    if (p->pos.x > 800){
+      p->pos.x = 1;
+      p->birthTime -=200.0f;
+    } 
+    if (p->pos.x < 0){
+      p->pos.x = 800;
+      p->birthTime -=200.0f;
+    } 
+    if (p->pos.y > 800){
+      p->pos.y = 1;
+      p->birthTime -=200.0f;
+    } 
+    if (p->pos.y < 0){
+      p->pos.y = 800;
+      p->birthTime -=200.0f;
+
+    } 
     
+    p = p->next;
   }
 }
 
@@ -289,15 +312,35 @@ void paintShots(){
   
   while (p != nullptr)
   {
-    //DRAW
-		*(sqPoints+0) = p->pos;
-		*(sqPoints+1) = zoro::SumVec2(*(sqPoints+0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)),1));
-		*(sqPoints+2) = zoro::SumVec2(*(sqPoints+1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
-		*(sqPoints+3) = zoro::SumVec2(*(sqPoints+0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
+    if (esat::Time()-p->birthTime < shotLifespan)
+    {
+      
+      //DRAW
+      *(sqPoints+0) = p->pos;
+      *(sqPoints+1) = zoro::SumVec2(*(sqPoints+0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)),5));
+      *(sqPoints+2) = zoro::SumVec2(*(sqPoints+1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
+      *(sqPoints+3) = zoro::SumVec2(*(sqPoints+0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
+      esat::DrawSetStrokeColor(0,0,0,0);
+      esat::DrawSetFillColor(255,255,255,255);
+      esat::DrawSolidPath(&sqPoints[0].x,4);
+      
+      for (int i = 1; i < 20; i++)
+      {
+        
+
+        //DRAW
+        *(sqPoints+0) = zoro::SubtractVec2(p->pos,zoro::ScaleVec2(zoro::NormalizeVec2(p->dir),3*i));
+        *(sqPoints+1) = zoro::SumVec2(*(sqPoints+0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)),2));
+        *(sqPoints+2) = zoro::SumVec2(*(sqPoints+1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
+        *(sqPoints+3) = zoro::SumVec2(*(sqPoints+0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
+
+        esat::DrawSetStrokeColor(0,0,0,0);
+        esat::DrawSetFillColor(255,255,255,80 - ((80 * i) / 30));
+        esat::DrawSolidPath(&sqPoints[0].x,4);
+        if (esat::Time()-p->birthTime < i+10) i=21; 
+      }
+    }
     
-		esat::DrawSetStrokeColor(255,255,255,255);
-		esat::DrawSetFillColor(255,255,255,255);
-		esat::DrawSolidPath(&sqPoints[0].x,4);
 
     if (p->next != nullptr) p = p->next;  
     else p = nullptr;
@@ -307,15 +350,12 @@ void paintShots(){
 }
 
 void moveAsteroid(ast::TAsteroid *p_asteroid){
-  
   p_asteroid->pos = zoro::SumVec2(p_asteroid->pos, zoro::ScaleVec2(p_asteroid->dir, p_asteroid->speed));
   p_asteroid->angle += 0.005;
   if (p_asteroid->pos.x > 840) p_asteroid->pos.x = -39;
   if (p_asteroid->pos.x < -40) p_asteroid->pos.x = 839;
   if (p_asteroid->pos.y > 840) p_asteroid->pos.y = -39;
-  if (p_asteroid->pos.y < -40) p_asteroid->pos.y = 839;
-  
-  
+  if (p_asteroid->pos.y < -40) p_asteroid->pos.y = 839;  
 }
 
 void paintAsteroid(ast::TAsteroid *p_asteroid){
@@ -377,7 +417,7 @@ void input(){
     ship.acceleration.x = -cos(ship.angle) * 0.05; 
     ship.acceleration.y = -sin(ship.angle) * 0.05; 
   }
-  if (esat::IsSpecialKeyUp(esat::kSpecialKey_Space)){
+  if (esat::IsSpecialKeyDown(esat::kSpecialKey_Space)){
     
     TShot shot;
     
@@ -386,7 +426,7 @@ void input(){
     shot.dir.x = cos(ship.angle);
     shot.dir.y = sin(ship.angle);
     shot.pos = zoro::SumVec2(ship.pos, zoro::ScaleVec2(shot.dir, ship.scale*0.9));
-    shot.speed = 2.0f;
+    shot.speed = 20.0f;
     shot.isEnemy = false;
     shot.next = nullptr;
     
@@ -415,7 +455,7 @@ void ClearDrawCoolEffectUwU(){
   ship.color = {(float)50+rand()%200,(float)50+rand()%200,(float)50+rand()%200};
 
   esat::DrawSetStrokeColor(0,0,0,255);
-	esat::DrawSetFillColor(0,0,0,50);
+	esat::DrawSetFillColor(0,0,0,30);
 	esat::DrawSolidPath(&p[0].x, 4);
 
 }
@@ -453,9 +493,9 @@ int esat::main(int argc, char **argv) {
   		current_time = esat::Time();
   	}while((current_time-last_time)<=1000.0/fps);
   	esat::WindowFrame();
-  }
-  
+  }  
   esat::WindowDestroy();
-  return 0;
-    
+  return 0; 
 }
+
+
