@@ -16,7 +16,7 @@ namespace ast{
   
   struct TColPoints
   {
-    zoro::Vec2 points;
+    zoro::Vec2 *points;
     TColPoints *next;
   };
   
@@ -29,6 +29,7 @@ namespace ast{
 
   struct TAsteroid{
     TAsteroid *next;
+    TAsteroid *prev;
     AsteroidSize size;
     zoro::Vec2 pos = {400.0f, 400.0f};
     zoro::Vec2 dir = {2.5f, 1.5f};
@@ -43,12 +44,99 @@ namespace ast{
 	  *(lista) = nullptr;
   };
 
-  void GenerateAsteroidColPoints(TAsteroidData* data){
-  
-    for (int i = 0; i < data->kNPoints; i++)
-    {
-      
+  void insertNewShape(TColPoints colP, zoro::Vec2 endP){
+    
+    
+
+  }
+
+  void addToShape(TColPoints colP, zoro::Vec2 newP){
+
+
+
+  }
+
+  void GenerateAsteroidColPoints(TAsteroidData* data) {
+    printf("\n---\n");
+    printf("(%d)\n", data->kNPoints);
+
+    zoro::Vec2 q, p, d;
+    int offset;
+    bool found;
+
+    for (int i = 0; i < data->kNPoints; i++) {
+
+        offset = 0;
+        found = false;
+        
+        // q = p-1
+        // p = i
+        // d = p+1
+
+        p.x = (*(data->g_points + i)).x;
+        p.y = (*(data->g_points + i)).y;
+
+        if (i == 0) {
+            q.x = (*(data->g_points + data->kNPoints - 1)).x;
+            q.y = (*(data->g_points + data->kNPoints - 1)).y;
+        } else {
+            q.x = (*(data->g_points + i - 1)).x;
+            q.y = (*(data->g_points + i - 1)).y;
+        }
+
+        if (i == data->kNPoints - 1) {
+            d.x = (*(data->g_points + 0)).x;
+            d.y = (*(data->g_points + 0)).y;
+        } else {
+            d.x = (*(data->g_points + i + 1)).x;
+            d.y = (*(data->g_points + i + 1)).y;
+        }
+
+        //printf("[%d](%f) ",i, zoro::angleBetween(p, q, d));
+
+        if (zoro::angleBetween(q, p, d) <= zoro::PI) {
+            printf("u ");
+            do {
+                // q = p - 1
+                // p = i + offset + 1
+                // d = p + 1
+
+                if (i + offset + 1 >= data->kNPoints) {
+                    p.x = (*(data->g_points + (i + offset + 1) - data->kNPoints)).x;
+                    p.y = (*(data->g_points + (i + offset + 1) - data->kNPoints)).y;
+                } else {
+                    p.x = (*(data->g_points + i + offset + 1)).x;
+                    p.y = (*(data->g_points + i + offset + 1)).y;
+                }
+                
+                q.x = (*(data->g_points + i + offset)).x;
+                q.y = (*(data->g_points + i + offset)).y;
+                
+                if (i + offset + 2 >= data->kNPoints) {
+                    d.x = (*(data->g_points + (i + offset + 2) - data->kNPoints)).x;
+                    d.y = (*(data->g_points + (i + offset + 2) - data->kNPoints)).y;
+                } else {
+                    d.x = (*(data->g_points + i + offset + 2)).x;
+                    d.y = (*(data->g_points + i + offset + 2)).y;
+                }
+                
+                if (zoro::angleBetween(p, q, d) < zoro::PI) {
+                    found = true;
+                } else {
+                    offset++;
+                }
+            } while (!found);
+
+            // Insert new shape
+            insertNewShape(data->col, d);
+
+            i += offset;
+        } else {
+            // Add to main shape
+
+        }
     }
+    printf("\n---");
 }
 
   bool IsEmpty(TAsteroid *Lista){
@@ -74,25 +162,26 @@ namespace ast{
 
   nuevo = in_asteroid;
   nuevo->next = nullptr;
+  nuevo->prev = nullptr;
 
-  if (IsEmpty(*lista))
-  {
-    *lista = nuevo;
-  }else{
+  if (IsEmpty(*lista)) *lista = nuevo;
+  else{
     nuevo->next =*lista;
     *lista = nuevo;
   }
 
 }
 
-  void Delete(TAsteroid **lista, TAsteroid *asteroid){
-    TAsteroid *p, *q;
-    if (!IsEmpty(*lista)){
-      p = *lista;
-      if (p == asteroid){
-        *lista = p->next;
-        free(p);
-      }
-    }
+  void Delete(TAsteroid **lista){
+    TAsteroid *p;    
+    p = *lista;
+
+    if (p == nullptr) return;
+    if (p->prev != nullptr) p->prev->next = p->next;
+    if (p->next != nullptr) p->next->prev = p->prev;
+    if (p == *lista) *lista = p->next;
+        
+    free(p);
   }
+
 };

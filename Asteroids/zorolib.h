@@ -260,6 +260,22 @@ Vec4 Vec4MultMat4Vec4(Mat4 mat, Vec4 vec) {
                 mat.m[2] * vec.x + mat.m[5] * vec.y + mat.m[8] * vec.z + mat.m[11] * vec.w});
 };
 
+float angleBetween(Vec2 v1, Vec2 v2, Vec2 reference) {
+    Vec2 u = {v1.x - reference.x, v1.y - reference.y};
+    Vec2 v = {v2.x - reference.x, v2.y - reference.y};
+    
+    float dot = u.x * v.x + u.y * v.y;
+    float det = u.x * v.y - u.y * v.x;
+    
+    float angle = atan2(det, dot);
+    
+    if (angle < 0) {
+        angle += 2 * PI; // Convert negative angle to positive
+    }
+
+    return angle;
+}
+
 void PrintVec2(Vec2 v) {
   printf("[X]: %.3f [Y]: %.3f\n", v.x, v.y);
 }

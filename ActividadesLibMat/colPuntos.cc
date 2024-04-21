@@ -48,6 +48,7 @@ void paintShip(TShip ship){
     a = ship.g_points[i];
     if (i==2) b = ship.g_points[0];
     else b = ship.g_points[i+1];
+    
 // if dot(    (zoro::SubtractVec2(p,a)) , zoro::RightPerpendicularVec2(zoro::NormalizeVec2( zoro::SubtractVec2(b,a) ) )   );
     
     if(zoro::DotVec2((zoro::SubtractVec2(p,a)), zoro::RightPerpendicularVec2(zoro::NormalizeVec2( zoro::SubtractVec2(b,a)))) > 1 ) found = true;

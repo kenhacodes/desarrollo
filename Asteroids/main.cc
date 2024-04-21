@@ -103,11 +103,8 @@ void init(){
   {
     ast::GenerateAsteroidColPoints((astDataTypes + i));
   }
-  
-  
-  
 
-  for (int i = 0; i < 5; i++)
+  for (int i = 0; i < 4; i++)
   {
     ast::InsertList(&asteroidList, randomAsteroid());
   }
@@ -116,7 +113,7 @@ void init(){
 }
 
 void initAstData(){
-  
+
   astDataTypes = (ast::TAsteroidData*) malloc(4 * sizeof(ast::TAsteroidData));
 
   (astDataTypes + 0)->kNPoints = 12;
@@ -126,15 +123,23 @@ void initAstData(){
 
   (astDataTypes + 0)->dr_points = (zoro::Vec2*) malloc((astDataTypes + 0)->kNPoints * sizeof(zoro::Vec2));
   (astDataTypes + 0)->g_points = (zoro::Vec3*) malloc((astDataTypes + 0)->kNPoints * sizeof(zoro::Vec3));
+  (astDataTypes + 0)->col.points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
+  (astDataTypes + 0)->col.next = nullptr;
 
   (astDataTypes + 1)->dr_points = (zoro::Vec2*) malloc((astDataTypes + 1)->kNPoints * sizeof(zoro::Vec2));
   (astDataTypes + 1)->g_points = (zoro::Vec3*) malloc((astDataTypes + 1)->kNPoints * sizeof(zoro::Vec3));
+  (astDataTypes + 1)->col.points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
+  (astDataTypes + 1)->col.next = nullptr;
 
   (astDataTypes + 2)->dr_points = (zoro::Vec2*) malloc((astDataTypes + 2)->kNPoints * sizeof(zoro::Vec2));
   (astDataTypes + 2)->g_points = (zoro::Vec3*) malloc((astDataTypes + 2)->kNPoints * sizeof(zoro::Vec3));
+  (astDataTypes + 2)->col.points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
+  (astDataTypes + 2)->col.next = nullptr;
 
   (astDataTypes + 3)->dr_points = (zoro::Vec2*) malloc((astDataTypes + 3)->kNPoints * sizeof(zoro::Vec2));
   (astDataTypes + 3)->g_points = (zoro::Vec3*) malloc((astDataTypes + 3)->kNPoints * sizeof(zoro::Vec3));
+  (astDataTypes + 3)->col.points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
+  (astDataTypes + 3)->col.next = nullptr;
 
   // Asteroid 0
 
@@ -431,7 +436,7 @@ void input(){
     shot.next = nullptr;
     
     addShot(shot);
-    
+    ast::Delete(&asteroidList);
   }
 }
 
