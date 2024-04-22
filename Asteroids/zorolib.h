@@ -268,10 +268,7 @@ float angleBetween(Vec2 v1, Vec2 v2, Vec2 reference) {
     float det = u.x * v.y - u.y * v.x;
     
     float angle = atan2(det, dot);
-    
-    if (angle < 0) {
-        angle += 2 * PI; // Convert negative angle to positive
-    }
+    if (angle < 0) angle += 2 * PI; 
 
     return angle;
 }

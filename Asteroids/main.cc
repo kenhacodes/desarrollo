@@ -121,25 +121,16 @@ void initAstData(){
   (astDataTypes + 2)->kNPoints = 10;
   (astDataTypes + 3)->kNPoints = 12;
 
-  (astDataTypes + 0)->dr_points = (zoro::Vec2*) malloc((astDataTypes + 0)->kNPoints * sizeof(zoro::Vec2));
-  (astDataTypes + 0)->g_points = (zoro::Vec3*) malloc((astDataTypes + 0)->kNPoints * sizeof(zoro::Vec3));
-  (astDataTypes + 0)->col.points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
-  (astDataTypes + 0)->col.next = nullptr;
-
-  (astDataTypes + 1)->dr_points = (zoro::Vec2*) malloc((astDataTypes + 1)->kNPoints * sizeof(zoro::Vec2));
-  (astDataTypes + 1)->g_points = (zoro::Vec3*) malloc((astDataTypes + 1)->kNPoints * sizeof(zoro::Vec3));
-  (astDataTypes + 1)->col.points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
-  (astDataTypes + 1)->col.next = nullptr;
-
-  (astDataTypes + 2)->dr_points = (zoro::Vec2*) malloc((astDataTypes + 2)->kNPoints * sizeof(zoro::Vec2));
-  (astDataTypes + 2)->g_points = (zoro::Vec3*) malloc((astDataTypes + 2)->kNPoints * sizeof(zoro::Vec3));
-  (astDataTypes + 2)->col.points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
-  (astDataTypes + 2)->col.next = nullptr;
-
-  (astDataTypes + 3)->dr_points = (zoro::Vec2*) malloc((astDataTypes + 3)->kNPoints * sizeof(zoro::Vec2));
-  (astDataTypes + 3)->g_points = (zoro::Vec3*) malloc((astDataTypes + 3)->kNPoints * sizeof(zoro::Vec3));
-  (astDataTypes + 3)->col.points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
-  (astDataTypes + 3)->col.next = nullptr;
+  for (int i = 0; i < 4; i++)
+  {
+    (astDataTypes + i)->dr_points = (zoro::Vec2*) malloc((astDataTypes + i)->kNPoints * sizeof(zoro::Vec2));
+    (astDataTypes + i)->g_points = (zoro::Vec3*) malloc((astDataTypes + i)->kNPoints * sizeof(zoro::Vec3));
+    (astDataTypes + i)->col = (ast::TColPoints*) malloc(1 * sizeof(ast::TColPoints));
+    (astDataTypes + i)->col->points = (zoro::Vec2*) malloc(1 * sizeof(zoro::Vec2));
+    (astDataTypes + i)->col->next = nullptr;
+    (astDataTypes + i)->col->NumColPoints = 0;
+  }
+  
 
   // Asteroid 0
 
@@ -226,6 +217,8 @@ void resetShip(TShip *ship){
   *(ship->g_Fuelpoints + 1) = {-0.13f, -0.19f, 1.0f};
   *(ship->g_Fuelpoints + 2) = {-0.55f, +0.0f, 1.0f};
 }
+
+
 
 void paintShip(TShip p_ship){
 
@@ -363,6 +356,44 @@ void moveAsteroid(ast::TAsteroid *p_asteroid){
   if (p_asteroid->pos.y < -40) p_asteroid->pos.y = 839;  
 }
 
+void debugPaintAsteroidColisions(ast::TAsteroid *p_asteroid){
+  
+
+
+  zoro::Mat3 m = zoro::MatIdentity3();
+  
+  m = zoro::Mat3Multiply(zoro::Mat3Translate(p_asteroid->pos), m);
+	m = zoro::Mat3Multiply(zoro::Mat3Scale(	50, 50), m);
+	m = zoro::Mat3Multiply(zoro::Mat3Rotate( p_asteroid->angle), m);
+
+  ast::TAsteroidData *temp = (astDataTypes+p_asteroid->type);
+  ast::TColPoints *colP = temp->col+1;
+  printf("\nType: %d, count: %d", p_asteroid->type, temp->col->NumColPoints);
+  
+
+  do{
+
+  for (int i = 0; i < colP->NumColPoints; i++)
+	{
+    zoro::Vec2 f = *( colP->points + i);
+	  zoro::Vec3 tmp = zoro::Mat3TransformVec3(m, {f.x,f.y,1.0f});
+	  
+	}
+  
+  esat::DrawSetStrokeColor(255,0,0,255);
+	esat::DrawSetFillColor(255,0,0,100);
+	esat::DrawSolidPath(&temp->dr_points[0].x, temp->col->NumColPoints);
+  temp->col = temp->col->next;
+
+  }while (temp->col->next != nullptr);
+  
+  
+ 
+  
+  
+  
+}
+
 void paintAsteroid(ast::TAsteroid *p_asteroid){
   zoro::Mat3 m = zoro::MatIdentity3();
   
@@ -378,8 +409,8 @@ void paintAsteroid(ast::TAsteroid *p_asteroid){
 		*(temp.dr_points + i) = {tmp.x, tmp.y};
 	}
   
-  esat::DrawSetStrokeColor(p_asteroid->color.r,p_asteroid->color.g,p_asteroid->color.b,255);
-	esat::DrawSetFillColor(p_asteroid->color.r,p_asteroid->color.g,p_asteroid->color.b,20);
+  esat::DrawSetStrokeColor(255,255,255,255);
+	esat::DrawSetFillColor(255,255,255,20);
 	esat::DrawSolidPath(&temp.dr_points[0].x, temp.kNPoints);
   
 }
@@ -391,6 +422,7 @@ void asteroidManager(){
   {
     moveAsteroid(p);
     paintAsteroid(p);
+    debugPaintAsteroidColisions(p);
     p = p->next;
   }
 }

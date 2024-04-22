@@ -18,13 +18,14 @@ namespace ast{
   {
     zoro::Vec2 *points;
     TColPoints *next;
+    int NumColPoints;
   };
   
   struct TAsteroidData{
     int kNPoints;
     zoro::Vec3 *g_points;
     zoro::Vec2 *dr_points; 
-    TColPoints col;
+    TColPoints *col;
   };
 
   struct TAsteroid{
@@ -44,16 +45,41 @@ namespace ast{
 	  *(lista) = nullptr;
   };
 
-  void insertNewShape(TColPoints colP, zoro::Vec2 endP){
+  void insertNewShape(TAsteroidData *data, int count, int offset){
+
+    TColPoints *p = data->col;
+
+    // Go to last shape in list
+    while(p->next != nullptr){
+      p = p->next;
+    }
+
+    p->next = (TColPoints*) malloc(sizeof(TColPoints));
+    p = p->next;
+    p->next = nullptr;
     
+    p->NumColPoints = 3 + offset;
+    p->points = (zoro::Vec2*) malloc((3 + offset)*sizeof(zoro::Vec2));
     
+    for (int i = 0; i < (3 + offset); i++)
+    {
+      printf("\ncount: %d ", count);
+      (*(p->points + i)).x = (*(data->g_points + i + (count))).x;
+      (*(p->points + i)).y = (*(data->g_points + i + (count))).y;
+    }
+    
+
+    // Add shape
 
   }
 
-  void addToShape(TColPoints colP, zoro::Vec2 newP){
+  void addToShape(TAsteroidData *data, zoro::Vec2 newP){
 
-
-
+    TColPoints *p = data->col;
+    p->NumColPoints += 1;
+    p->points = (zoro::Vec2*)calloc(p->NumColPoints,sizeof(zoro::Vec2));
+    *(p->points + p->NumColPoints) = newP;
+    
   }
 
   void GenerateAsteroidColPoints(TAsteroidData* data) {
@@ -125,15 +151,25 @@ namespace ast{
                 } else {
                     offset++;
                 }
+
             } while (!found);
 
             // Insert new shape
-            insertNewShape(data->col, d);
+            insertNewShape(data,i,offset);
 
             i += offset;
-        } else {
-            // Add to main shape
 
+        } else {
+            zoro::Vec2 newPoint;
+            // Add to main shape
+            if (i == 0) {
+            newPoint.x = (*(data->g_points + data->kNPoints - 1)).x;
+            newPoint.y = (*(data->g_points + data->kNPoints - 1)).y;
+        } else {
+            newPoint.x = (*(data->g_points + i - 1)).x;
+            newPoint.y = (*(data->g_points + i - 1)).y;
+        }
+          //addToShape(data,newPoint);
         }
     }
     printf("\n---");
