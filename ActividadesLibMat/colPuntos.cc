@@ -62,10 +62,6 @@ void paintShip(TShip ship){
     esat::DrawSetFillColor(ship.color.r,ship.color.g,ship.color.b,50);
   }
   esat::DrawSolidPath(&ship.g_points[0].x, 3);
-
-
-	
-	
 }
 
 
