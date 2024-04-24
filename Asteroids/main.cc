@@ -489,7 +489,7 @@ void checkColisionAsteroid(ast::TAsteroid *p_asteroid)
       esat::DrawSetStrokeColor(0, 0, 255, 50);
       esat::DrawSetFillColor(0, 0, 255, 100);
       esat::DrawSolidPath(&tempTest.dr_points[0].x, colP->NumColPoints);
-
+      int counter = 0;
         for (int i = 0; i < colP->NumColPoints && !found; i++)
         {
           
@@ -502,55 +502,26 @@ void checkColisionAsteroid(ast::TAsteroid *p_asteroid)
           }
           //zoro::PrintVec2(a);
           //zoro::PrintVec2(b);
+
           temp = zoro::Mat3TransformVec3(p->M, {a.x, a.y, 1.0f});
           a = {temp.x, temp.y};
           temp = zoro::Mat3TransformVec3(p->M, {b.x, b.y, 1.0f});
           b = {temp.x, temp.y};
-          esat::DrawSetStrokeColor(255,0,0,255);
-          esat::DrawLine(a.x, a.y,b.x, b.y);
-          esat::DrawLine(a.x, a.y,shots->pos.x, shots->pos.y);
           
 
-          //v = b - a
-          //v = Norm(v)
-          //n = Perp(v)
-          //w = p - a
-          // dot( w, n )
-          
-          printf("\n\n\n--------\n");
-          printf("\n[%d]\n",i);
-          printf("a:");
-          zoro::PrintVec2(a);
-          printf("b:");
-          zoro::PrintVec2(b);
-          printf("Pos disparo:");
-          zoro::PrintVec2(shots->pos);
-          printf("b - a:");
-          zoro::PrintVec2(zoro::SubtractVec2(b,a));
-          printf("Normalizado b - a:");
-          zoro::PrintVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b,a)));
-          printf("Perpedicular:");
-          zoro::PrintVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b,a))));
-          printf("Pos disparo - a:");
-          zoro::PrintVec2(zoro::SubtractVec2(shots->pos, a));
-          
-          
           
           
           float value = DotVec2( zoro::SubtractVec2(shots->pos, a) , zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b,a))) );
-          printf("Dot: %f ", value);
-          printf("\n--------");
-          if ( value > 0.0f ){
-            
-            
-            //found = true;
-            //shots->active = false;
-            
-            
-            //ast::Delete(&p);
-          }else{
-            //printf(" (Not Colision)");
+          
+          if ( value >= 0.0f ){
+            counter++;
           }
+        }
+        if (counter == colP->NumColPoints){
+
+          
+
+          shots->active = false;
         }
 
       }
@@ -675,10 +646,10 @@ int esat::main(int argc, char **argv)
 
     input();
     movementShip();
-    paintShip(ship);
+    
     moveShots();
     asteroidManager();
-    
+    paintShip(ship);
     paintShots();
 
     esat::DrawEnd();
