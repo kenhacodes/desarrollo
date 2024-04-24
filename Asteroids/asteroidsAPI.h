@@ -87,18 +87,14 @@ namespace ast
         (*(p->points + i+1)).y = (*(data->g_points + i + (count))).y;
       }
     }
-
     // Add shape
   }
 
   void addToShape(TAsteroidData *data, zoro::Vec2 newP)
   {
     TColPoints *p = data->col;
-    
-    //p->next = (TColPoints*)malloc(1*sizeof(zoro::Vec2));
     *(p->points + p->NumColPoints) = newP;
     p->NumColPoints += 1;
-    //printf("NumColPoints: %d\n", p->NumColPoints);
   }
 
   void GenerateAsteroidColPoints(TAsteroidData *data)

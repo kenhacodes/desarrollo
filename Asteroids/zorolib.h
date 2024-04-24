@@ -424,11 +424,13 @@ Mat2 TransposeMat2(Mat2 m){
   return (Mat2 { m.m[0], m.m[2],
                   m.m[1], m.m[3] });
 }
+
 Mat3 TransposeMat3(Mat3 m){
   return (Mat3 { m.m[0], m.m[3], m.m[6],
                   m.m[1], m.m[4], m.m[7],
                   m.m[2], m.m[5], m.m[8] });
 }
+
 Mat4 TransposeMat4(Mat4 m){
   return (Mat4 { m.m[0], m.m[4], m.m[8], m.m[12],
                   m.m[1], m.m[5], m.m[9], m.m[13],
