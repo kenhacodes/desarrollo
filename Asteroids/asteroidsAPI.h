@@ -44,6 +44,7 @@ namespace ast
     float speed = 3.0f;
     float angle;
     double birthTime;
+    zoro::Mat3 M;
   };
 
   void InitList(TAsteroid **lista)
@@ -93,10 +94,11 @@ namespace ast
   void addToShape(TAsteroidData *data, zoro::Vec2 newP)
   {
     TColPoints *p = data->col;
+    
+    //p->next = (TColPoints*)malloc(1*sizeof(zoro::Vec2));
+    *(p->points + p->NumColPoints) = newP;
     p->NumColPoints += 1;
-    p->points = (zoro::Vec2 *)calloc(p->NumColPoints, sizeof(zoro::Vec2));
-    *(p->points + p->NumColPoints-1) = newP;
-    printf("NumColPoints: %d\n", p->NumColPoints);
+    //printf("NumColPoints: %d\n", p->NumColPoints);
   }
 
   void GenerateAsteroidColPoints(TAsteroidData *data)
@@ -208,6 +210,7 @@ namespace ast
       {
         zoro::Vec2 newPoint;
         // Add to main shape
+
         if (i == 0)
         {
           newPoint.x = (*(data->g_points + data->kNPoints - 1)).x;
@@ -218,6 +221,8 @@ namespace ast
           newPoint.x = (*(data->g_points + i - 1)).x;
           newPoint.y = (*(data->g_points + i - 1)).y;
         }
+        newPoint.x = (*(data->g_points + i )).x;
+          newPoint.y = (*(data->g_points + i )).y;
         addToShape(data,newPoint);
       }
     }

@@ -112,7 +112,7 @@ void init()
     ast::GenerateAsteroidColPoints((astDataTypes + i));
   }
 
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < 5; i++)
   {
     ast::InsertList(&asteroidList, randomAsteroid());
   }
@@ -135,7 +135,7 @@ void initAstData()
     (astDataTypes + i)->dr_points = (zoro::Vec2 *)malloc((astDataTypes + i)->kNPoints * sizeof(zoro::Vec2));
     (astDataTypes + i)->g_points = (zoro::Vec3 *)malloc((astDataTypes + i)->kNPoints * sizeof(zoro::Vec3));
     (astDataTypes + i)->col = (ast::TColPoints *)malloc(1 * sizeof(ast::TColPoints));
-    (astDataTypes + i)->col->points = (zoro::Vec2 *)malloc(1 * sizeof(zoro::Vec2));
+    (astDataTypes + i)->col->points = (zoro::Vec2 *)malloc((astDataTypes + i)->kNPoints * sizeof(zoro::Vec2));
     (astDataTypes + i)->col->next = nullptr;
     (astDataTypes + i)->col->NumColPoints = 0;
   }
@@ -327,11 +327,11 @@ void paintShots()
 
   while (p != nullptr)
   {
-    if (esat::Time() - p->birthTime < shotLifespan)
+    if (esat::Time() - p->birthTime > shotLifespan)
     {
       p->active = false;
     }
-    
+
     if (p->active)
     {
 
@@ -380,6 +380,14 @@ void moveAsteroid(ast::TAsteroid *p_asteroid)
     p_asteroid->pos.y = -39;
   if (p_asteroid->pos.y < -40)
     p_asteroid->pos.y = 839;
+
+  p_asteroid->M = zoro::MatIdentity3();
+  
+
+  p_asteroid->M = zoro::Mat3Multiply(zoro::Mat3Translate(p_asteroid->pos), p_asteroid->M);
+  p_asteroid->M = zoro::Mat3Multiply(zoro::Mat3Scale(50, 50), p_asteroid->M);
+  p_asteroid->M = zoro::Mat3Multiply(zoro::Mat3Rotate(p_asteroid->angle), p_asteroid->M);
+
 }
 
 void debugPaintAsteroidColisions(ast::TAsteroid *p_asteroid)
@@ -393,8 +401,23 @@ void debugPaintAsteroidColisions(ast::TAsteroid *p_asteroid)
 
   ast::TAsteroidData temp = *(astDataTypes + p_asteroid->type);
   ast::TColPoints *colP = temp.col;
-
+  
   // printf("\nType: %d, count: %d", p_asteroid->type, asteroidData->col->NumColPoints);
+
+  if (colP != nullptr)
+  {
+    for (int i = 0; i < colP->NumColPoints; i++)
+    {
+      zoro::Vec2 f = *(colP->points + i);
+      zoro::Vec3 tmp = zoro::Mat3TransformVec3(m, {f.x, f.y, 1.0f});
+      *(temp.dr_points + i) = {tmp.x, tmp.y};
+    }
+
+    esat::DrawSetStrokeColor(255, 0, 0, 50);
+    esat::DrawSetFillColor(255, 0, 0, 120);
+    //esat::DrawSolidPath(&temp.dr_points[0].x, colP->NumColPoints);
+  }
+  
 
   do
   {
@@ -408,34 +431,132 @@ void debugPaintAsteroidColisions(ast::TAsteroid *p_asteroid)
       *(temp.dr_points + i) = {tmp.x, tmp.y};
     }
 
-    esat::DrawSetStrokeColor(255, 0, 0, 50);
-    esat::DrawSetFillColor(255, 0, 0, 120);
+    esat::DrawSetStrokeColor(150, 150, 0, 50);
+    esat::DrawSetFillColor(255, 150, 0, 120);
     esat::DrawSolidPath(&temp.dr_points[0].x, colP->NumColPoints);
-
-    
 
   } while (colP->next != nullptr);
 }
 
 void paintAsteroid(ast::TAsteroid *p_asteroid)
 {
-  zoro::Mat3 m = zoro::MatIdentity3();
-
-  m = zoro::Mat3Multiply(zoro::Mat3Translate(p_asteroid->pos), m);
-  m = zoro::Mat3Multiply(zoro::Mat3Scale(50, 50), m);
-  m = zoro::Mat3Multiply(zoro::Mat3Rotate(p_asteroid->angle), m);
-
+  
   ast::TAsteroidData temp = *(astDataTypes + p_asteroid->type);
 
   for (int i = 0; i < temp.kNPoints; i++)
   {
-    zoro::Vec3 tmp = zoro::Mat3TransformVec3(m, *(temp.g_points + i));
+    zoro::Vec3 tmp = zoro::Mat3TransformVec3(p_asteroid->M, *(temp.g_points + i));
     *(temp.dr_points + i) = {tmp.x, tmp.y};
   }
 
-  esat::DrawSetStrokeColor(255, 255, 255, 255);
+  esat::DrawSetStrokeColor(255, 255, 255, 100);
   esat::DrawSetFillColor(255, 255, 255, 20);
   esat::DrawSolidPath(&temp.dr_points[0].x, temp.kNPoints);
+}
+
+void checkColisionAsteroid(ast::TAsteroid *p_asteroid)
+{
+  TShot *shots = shotlist;
+
+  ast::TAsteroid *p = nullptr;
+  ast::TAsteroidData *data = nullptr;
+  ast::TColPoints *colP = nullptr;
+
+  zoro::Vec2 a, b;
+  zoro::Vec3 temp;
+  bool found = false;
+
+  while (shots != nullptr)
+  {
+    if (shots->active)
+    {
+      p = p_asteroid;
+      if (p != nullptr)
+      {
+        data = (astDataTypes + p->type);
+        colP = data->col;
+        found = false;
+
+
+      ast::TAsteroidData tempTest = *(astDataTypes + p->type);
+      
+      for (int i = 0; i < colP->NumColPoints; i++)
+      {
+        zoro::Vec3 tmp = zoro::Mat3TransformVec3(p_asteroid->M, {(tempTest.col->points + i)->x,(tempTest.col->points + i)->y,1.0f});
+        *(tempTest.dr_points + i) = {tmp.x, tmp.y};
+      }
+
+      esat::DrawSetStrokeColor(0, 0, 255, 50);
+      esat::DrawSetFillColor(0, 0, 255, 100);
+      esat::DrawSolidPath(&tempTest.dr_points[0].x, colP->NumColPoints);
+
+        for (int i = 0; i < colP->NumColPoints && !found; i++)
+        {
+          
+          a = *(colP->points+i);
+          if (i == colP->NumColPoints-1)
+          {
+            b = *(colP->points + 0);
+          }else{
+            b = *(colP->points + i + 1); 
+          }
+          //zoro::PrintVec2(a);
+          //zoro::PrintVec2(b);
+          temp = zoro::Mat3TransformVec3(p->M, {a.x, a.y, 1.0f});
+          a = {temp.x, temp.y};
+          temp = zoro::Mat3TransformVec3(p->M, {b.x, b.y, 1.0f});
+          b = {temp.x, temp.y};
+          esat::DrawSetStrokeColor(255,0,0,255);
+          esat::DrawLine(a.x, a.y,b.x, b.y);
+          esat::DrawLine(a.x, a.y,shots->pos.x, shots->pos.y);
+          
+
+          //v = b - a
+          //v = Norm(v)
+          //n = Perp(v)
+          //w = p - a
+          // dot( w, n )
+          
+          printf("\n\n\n--------\n");
+          printf("\n[%d]\n",i);
+          printf("a:");
+          zoro::PrintVec2(a);
+          printf("b:");
+          zoro::PrintVec2(b);
+          printf("Pos disparo:");
+          zoro::PrintVec2(shots->pos);
+          printf("b - a:");
+          zoro::PrintVec2(zoro::SubtractVec2(b,a));
+          printf("Normalizado b - a:");
+          zoro::PrintVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b,a)));
+          printf("Perpedicular:");
+          zoro::PrintVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b,a))));
+          printf("Pos disparo - a:");
+          zoro::PrintVec2(zoro::SubtractVec2(shots->pos, a));
+          
+          
+          
+          
+          float value = DotVec2( zoro::SubtractVec2(shots->pos, a) , zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b,a))) );
+          printf("Dot: %f ", value);
+          printf("\n--------");
+          if ( value > 0.0f ){
+            
+            
+            //found = true;
+            //shots->active = false;
+            
+            
+            //ast::Delete(&p);
+          }else{
+            //printf(" (Not Colision)");
+          }
+        }
+
+      }
+    }
+    shots = shots->next;
+  }
 }
 
 void asteroidManager()
@@ -445,24 +566,13 @@ void asteroidManager()
   while (p != nullptr)
   {
     moveAsteroid(p);
-    paintAsteroid(p);
+    checkColisionAsteroid(p);
     debugPaintAsteroidColisions(p);
+    paintAsteroid(p);
+    
+    
     p = p->next;
   }
-}
-
-void checkColisionAsteroid()
-{
-  while (shotlist != nullptr)
-  {
-    if (shotlist->birthTime)
-    {
-      /* code */
-    }
-    
-  }
-  
-  
 }
 
 void input()
@@ -508,7 +618,7 @@ void input()
     shot.next = nullptr;
 
     addShot(shot);
-    ast::Delete(&asteroidList);
+    //ast::Delete(&asteroidList);
   }
 }
 
@@ -566,8 +676,9 @@ int esat::main(int argc, char **argv)
     input();
     movementShip();
     paintShip(ship);
-    asteroidManager();
     moveShots();
+    asteroidManager();
+    
     paintShots();
 
     esat::DrawEnd();
