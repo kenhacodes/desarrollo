@@ -70,21 +70,22 @@ namespace ast
     p->NumColPoints = 3 + offset;
     p->points = (zoro::Vec2 *)malloc((p->NumColPoints) * sizeof(zoro::Vec2));
 
-    for (int i = -1; i < (3 + offset-1); i++)
+    for (int i = -1; i < (3 + offset - 1); i++)
     {
       if (i + count < 0)
       {
-        (*(p->points + i+1)).x = (*(data->g_points + (data->kNPoints-1))).x;
-        (*(p->points + i+1)).y = (*(data->g_points + (data->kNPoints-1))).y;
+        (*(p->points + i + 1)).x = (*(data->g_points + (data->kNPoints - 1))).x;
+        (*(p->points + i + 1)).y = (*(data->g_points + (data->kNPoints - 1))).y;
       }
-      else if (count + i >= data->kNPoints-1)
+      else if (count + i >= data->kNPoints - 1)
       {
-        (*(p->points + i+1)).x = (*(data->g_points + i + count - data->kNPoints)).x;
-        (*(p->points + i+1)).y = (*(data->g_points + i + count - data->kNPoints)).y;
-      }else
+        (*(p->points + i + 1)).x = (*(data->g_points + i + count - data->kNPoints)).x;
+        (*(p->points + i + 1)).y = (*(data->g_points + i + count - data->kNPoints)).y;
+      }
+      else
       {
-        (*(p->points + i+1)).x = (*(data->g_points + i + (count))).x;
-        (*(p->points + i+1)).y = (*(data->g_points + i + (count))).y;
+        (*(p->points + i + 1)).x = (*(data->g_points + i + (count))).x;
+        (*(p->points + i + 1)).y = (*(data->g_points + i + (count))).y;
       }
     }
     // Add shape
@@ -145,8 +146,8 @@ namespace ast
 
       if (zoro::angleBetween(q, p, d) <= zoro::PI)
       {
-        printf("[%d](%f) ",i, zoro::angleBetween(p, q, d));
-        //printf("u ");
+        printf("[%d](%f) ", i, zoro::angleBetween(p, q, d));
+        // printf("u ");
         do
         {
           // q = p - 1
@@ -164,7 +165,7 @@ namespace ast
             p.y = (*(data->g_points + i + offset + 1)).y;
           }
 
-          if (i + offset  >= data->kNPoints)
+          if (i + offset >= data->kNPoints)
           {
             q.x = (*(data->g_points + (i + offset) - data->kNPoints)).x;
             q.y = (*(data->g_points + (i + offset) - data->kNPoints)).y;
@@ -217,9 +218,9 @@ namespace ast
           newPoint.x = (*(data->g_points + i - 1)).x;
           newPoint.y = (*(data->g_points + i - 1)).y;
         }
-        newPoint.x = (*(data->g_points + i )).x;
-          newPoint.y = (*(data->g_points + i )).y;
-        addToShape(data,newPoint);
+        newPoint.x = (*(data->g_points + i)).x;
+        newPoint.y = (*(data->g_points + i)).y;
+        addToShape(data, newPoint);
       }
     }
     printf("\n---");
