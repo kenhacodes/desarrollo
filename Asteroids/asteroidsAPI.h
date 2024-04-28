@@ -5,6 +5,7 @@
 namespace ast
 {
 
+
   enum AsteroidSize
   {
     SMALL = 0,
@@ -24,7 +25,7 @@ namespace ast
     int NumColPoints;
   };
 
-  struct TAsteroidData
+  struct TPaintColData
   {
     int kNPoints;
     zoro::Vec3 *g_points;
@@ -52,7 +53,7 @@ namespace ast
     *(lista) = nullptr;
   };
 
-  void insertNewShape(TAsteroidData *data, int count, int offset)
+  void insertNewShape(TPaintColData *data, int count, int offset)
   {
 
     TColPoints *p = data->col;
@@ -91,14 +92,14 @@ namespace ast
     // Add shape
   }
 
-  void addToShape(TAsteroidData *data, zoro::Vec2 newP)
+  void addToShape(TPaintColData *data, zoro::Vec2 newP)
   {
     TColPoints *p = data->col;
     *(p->points + p->NumColPoints) = newP;
     p->NumColPoints += 1;
   }
 
-  void GenerateAsteroidColPoints(TAsteroidData *data)
+  void GenerateAsteroidColPoints(TPaintColData *data)
   {
     printf("\n---\n");
     printf("(%d)\n", data->kNPoints);
@@ -246,10 +247,17 @@ namespace ast
 
   void InsertList(TAsteroid **lista, TAsteroid *in_asteroid)
   {
-
     TAsteroid *nuevo = (TAsteroid *)malloc(sizeof(TAsteroid));
 
-    nuevo = in_asteroid;
+    nuevo->size = in_asteroid->size;
+    nuevo->pos = in_asteroid->pos;
+    nuevo->dir = in_asteroid->dir;
+    nuevo->color = in_asteroid->color;
+    nuevo->type = in_asteroid->type;
+    nuevo->speed = in_asteroid->speed;
+    nuevo->angle = in_asteroid->angle;
+    nuevo->birthTime = in_asteroid->birthTime;
+
     nuevo->next = nullptr;
     nuevo->prev = nullptr;
 
@@ -258,25 +266,29 @@ namespace ast
     else
     {
       nuevo->next = *lista;
+      (*lista)->prev = nuevo;
       *lista = nuevo;
     }
+    //free(in_asteroid);
+    in_asteroid = nullptr;
   }
 
-  void Delete(TAsteroid **lista)
+  void Delete(TAsteroid **lista, TAsteroid *nodeToDelete)
   {
-    TAsteroid *p;
-    p = *lista;
-
-    if (p == nullptr)
+    if (*lista == nullptr || nodeToDelete == nullptr)
       return;
-    if (p->prev != nullptr)
-      p->prev->next = p->next;
-    if (p->next != nullptr)
-      p->next->prev = p->prev;
-    if (p == *lista)
-      *lista = p->next;
 
-    free(p);
+    if (*lista == nodeToDelete)
+      *lista = nodeToDelete->next;
+    
+    if (nodeToDelete->next != nullptr)
+      nodeToDelete->next->prev = nodeToDelete->prev;
+
+
+    if (nodeToDelete->prev != nullptr)
+      nodeToDelete->prev->next = nodeToDelete->next;
+    nodeToDelete = nullptr;
+    free(nodeToDelete);
+    
   }
-
 };
