@@ -7,12 +7,14 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 #include "asteroidsAPI.h"
 
 enum WindowState
 {
   MENU = 0,
   LOGIN,
+  SIGNUP,
   INGAME
 };
 
@@ -41,7 +43,8 @@ struct TShip
   zoro::Vec2 *dr_Fuelpoints;
 
   ast::rgb color = {255, 255, 255};
-
+  int score = 0;
+  int lives = 3;
   int kNPoints = 5;
   float scale = 50.0f;
   float angle = 0.0f;
@@ -74,19 +77,33 @@ struct TShot
   bool active;
 };
 
+struct TButton{
+  int idFunction;
+  int fontSize;
+  zoro::Vec2 pos;
+  zoro::Vec2 dimensions;
+  WindowState windowContext;
+  char *text;
+  TButton *next;
+};
+
 enum WindowState GAMESTATE = MENU;
 int level = 1;
 
 TShip ship;
+TShip ship2; // player 2
 
 ast::TPaintColData ufoDataUp, ufoDataDown;
 ast::TPaintColData *astDataTypes;
 ast::TAsteroid *asteroidList;
 
+TButton *InterfaceList;
 TShot *shotlist;
 TUfo ufo;
 
 zoro::Vec2 *sqPoints; // Square points
+
+char *TextBuffer;
 
 //    TIME VARIABLES
 unsigned char fps = 60;
@@ -100,8 +117,18 @@ double shotCooldownTime = 0.0f;
 
 const float InvincibleTimeRef = 3500.0f;
 const float PaintTimeRef = 200.0f;
+
 double InvincibleTime = 0.0f;
 double PaintTime = 0.0f;
+
+const float LastShotTimeRef = 5000.0f;
+double LastShotTime = 0.0f;
+
+const float UFORepositionTimeRef = 1000.0f;
+double UFORepositiontTime = 0.0f;
+
+const float UFOCooldownTimeRef = 15000.0f;
+double UFOCooldownTime = 0.0f;
 
 //  CONSTANTS
 const float WINDOW_X = 800.0f, WINDOW_Y = 800.0f;
@@ -150,18 +177,22 @@ ast::TAsteroid *randomAsteroid()
 void init()
 {
   ast::InitList(&asteroidList);
+  esat::DrawSetTextFont("./resources/fonts/Hyperspace.otf");
   shotlist = nullptr;
+  InterfaceList = nullptr;
   for (int i = 0; i < totalAsteroidTypes; i++)
   {
     ast::GenerateAsteroidColPoints((astDataTypes + i));
   }
 
   // Pointers
+  TextBuffer = (char*) malloc(30 * sizeof(char));
   sqPoints = (zoro::Vec2 *)malloc(4 * sizeof(zoro::Vec2));
   ufo.pos = {400.0f, 410.0f};
   ufo.dir = {0.0f, 0.0f};
   ufo.isBig = false;
   ufo.speed = 1.33f;
+  ufo.active = false;
 }
 
 void initAstData()
@@ -383,6 +414,7 @@ void addShot(TShot s)
   }
   else
   {
+    LastShotTime = esat::Time();
     newShot->speed = shotSpeed + zoro::MagnitudeVec2(ship.speed);
   }
 
@@ -525,7 +557,10 @@ void moveAsteroid(ast::TAsteroid *p_asteroid)
 
   p_asteroid->M = zoro::Mat3Multiply(zoro::Mat3Translate(p_asteroid->pos), p_asteroid->M);
   p_asteroid->M = zoro::Mat3Multiply(zoro::Mat3Scale((p_asteroid->size + 1) * 20, (p_asteroid->size + 1) * 20), p_asteroid->M);
-  p_asteroid->M = zoro::Mat3Multiply(zoro::Mat3Rotate(p_asteroid->angle), p_asteroid->M);
+  if (p_asteroid->angle > 0.0f)
+  {
+    p_asteroid->M = zoro::Mat3Multiply(zoro::Mat3Rotate(p_asteroid->angle), p_asteroid->M);
+  }
 }
 
 void debugPaintAsteroidColisions(ast::TAsteroid *p_asteroid)
@@ -673,6 +708,24 @@ bool checkColP(ast::TColPoints *colP, ast::TAsteroid *p, zoro::Vec2 pos, bool in
   return false;
 }
 
+void addScore(enum ast::AsteroidSize type){
+  
+  switch(type){
+    case ast::BIG:
+      ship.score += 20;
+      break;
+    case ast::MID:
+      ship.score += 50;
+      break;
+    case ast::SMALL:
+      ship.score += 100;
+      break;
+    default:
+    break;
+  }
+  
+}
+
 void checkColisionAsteroid(ast::TAsteroid *p)
 {
   TShot *shots = shotlist;
@@ -711,7 +764,8 @@ void checkColisionAsteroid(ast::TAsteroid *p)
           if (!colisionWithEmpty)
           {
             deleteShot(shots);
-            // shots->active = false;
+            addScore(p->size);
+            
             addChildAsteroid(p);
             ast::Delete(&asteroidList, p);
           }
@@ -726,10 +780,10 @@ void checkColisionAsteroid(ast::TAsteroid *p)
   }
 }
 
-void asteroidsManager()
+void asteroidsManager() // UWU
 {
   ast::TAsteroid *p = asteroidList;
-  if (p == nullptr)
+  if (asteroidList == nullptr)
   {
     level++;
     startNewGame();
@@ -756,12 +810,13 @@ void shootUFO()
   }
   else
   {
-    
+
     if (314 - (level * 20) < 0.0f)
       ufo.accuracy = 0.0f;
-    else{
+    else
+    {
       ufo.accuracy = rand() % (314 - (level * 20)) * 0.01;
-      ufo.accuracy -= ((314 - (level * 20))/2)*0.01;
+      ufo.accuracy -= ((314 - (level * 20)) / 2) * 0.01;
     }
   }
 
@@ -780,31 +835,106 @@ void shootUFO()
   addShot(shot);
 }
 
+void activateUFO()
+{
+  ufo.active = true;
+  ufo.pos.x = -150.0f;
+  ufo.pos.y = 300.0f + rand() % 200;
+
+  if (rand() % 2 == 1)
+  {
+    printf("Right start\n");
+    ufo.pos.x += 950.0f;
+    ufo.dir = {-1.0f, 0.0f}; // Move left
+  }
+  else
+  {
+    printf("Left start\n");
+    ufo.dir = {1.0f, 0.0f}; // Move right
+  }
+}
+
+void deactivateUFO()
+{
+  printf("Deactivated\n");
+  UFOCooldownTime = esat::Time();
+  ufo.active = false;
+}
+
+void repositionUFO()
+{
+  printf("Repositioning\n");
+
+  if (ufo.dir.y != 0)
+  {
+    ufo.dir.y = 0;
+  }
+  else
+  {
+    if (ufo.pos.y > 500)
+    {
+      ufo.dir.y = -1;
+      return;
+    }
+    if (ufo.pos.y < 300)
+    {
+      ufo.dir.y = 1;
+      return;
+    }
+    if (rand() % 2 == 1)
+    {
+      ufo.dir.y = 1;
+    }else{
+      ufo.dir.y = -1;
+    }
+  }
+}
+
 void AIufo()
 {
+  if (!ufo.active)
+  {
+    if ((esat::Time() - LastShotTime > LastShotTimeRef || ast::ListLength(asteroidList, true) < 8) &&
+        esat::Time() - UFOCooldownTime > UFOCooldownTimeRef)
+    {
+      activateUFO();
+    }
+  }
+  else
+  {
+    if (ufo.pos.x > 800 + 150 || ufo.pos.x < -250)
+    {
+      deactivateUFO();
+    }
 
-
-
-  ufo.dir = {1.0f, 0.0f};
+    if (esat::Time() - UFORepositiontTime > UFORepositionTimeRef)
+    {
+      if (rand() % 100 == 1)
+      {
+        repositionUFO();
+        UFORepositiontTime = esat::Time();
+      }
+    }
+  }
 }
 
 void moveUfo()
 {
+  if (ufo.active)
+  {
+    ufo.pos = zoro::SumVec2(ufo.pos, zoro::ScaleVec2(zoro::NormalizeVec2(ufo.dir), ufo.speed));
 
-  ufo.pos = zoro::SumVec2(ufo.pos, zoro::ScaleVec2(ufo.dir, ufo.speed));
-  if (ufo.pos.x > 800.0f)
-  {
-    ufo.pos.x = 0.0f;
-  }
-  ufo.M = zoro::MatIdentity3();
-  ufo.M = zoro::Mat3Multiply(zoro::Mat3Translate(ufo.pos), ufo.M);
-  if (ufo.isBig)
-  {
-    ufo.M = zoro::Mat3Multiply(zoro::Mat3Scale(60.0f, 60.0f), ufo.M);
-  }
-  else
-  {
-    ufo.M = zoro::Mat3Multiply(zoro::Mat3Scale(20.0f, 20.0f), ufo.M);
+    ufo.M = zoro::MatIdentity3();
+    ufo.M = zoro::Mat3Multiply(zoro::Mat3Translate(ufo.pos), ufo.M);
+
+    if (ufo.isBig)
+    {
+      ufo.M = zoro::Mat3Multiply(zoro::Mat3Scale(60.0f, 60.0f), ufo.M);
+    }
+    else
+    {
+      ufo.M = zoro::Mat3Multiply(zoro::Mat3Scale(20.0f, 20.0f), ufo.M);
+    }
   }
 }
 
@@ -839,6 +969,7 @@ void ufoColision()
   zoro::Vec3 temp;
   float value;
   int counter;
+  
   while (shots != nullptr)
   {
     if (!shots->isEnemy)
@@ -918,12 +1049,195 @@ void ufoManager()
   paintUfo();
 }
 
+// ----------------------------------- GUI -----------------------------------
+
+
+void paintGUI(){
+
+  esat::DrawSetTextSize(40);
+  esat::DrawSetFillColor(230,230,230,255); 
+  itoa(ship.score, TextBuffer, 10);
+  esat::DrawText(150,50, TextBuffer);
+  itoa(ship2.score, TextBuffer, 10);
+  esat::DrawText(650,50, TextBuffer);
+
+  for (int i = 0; i < ship.lives; i++)
+  {
+    zoro::Mat3 m = zoro::MatIdentity3();
+    m = zoro::Mat3Multiply(zoro::Mat3Translate({(i*20) + 40.0f, 100.0f}), m);
+    m = zoro::Mat3Multiply(zoro::Mat3Scale(20, 20), m);
+    m = zoro::Mat3Multiply(zoro::Mat3Rotate(-3.14f/2), m);
+
+    for (int i = 0; i < ship.kNPoints; i++)
+    {
+      zoro::Vec3 tmp = zoro::Mat3TransformVec3(m, *(ship.g_points + i));
+      *(ship.dr_points + i) = {tmp.x, tmp.y};
+    }
+    esat::DrawSetStrokeColor(ship.color.r, ship.color.g, ship.color.b, 255);
+    esat::DrawSetFillColor(ship.color.r, ship.color.g, ship.color.b, 20);
+    esat::DrawSolidPath(&ship.dr_points[0].x, ship.kNPoints);
+  }
+
+  for (int i = 0; i < ship2.lives; i++)
+  {
+    zoro::Mat3 m = zoro::MatIdentity3();
+    m = zoro::Mat3Multiply(zoro::Mat3Translate({(-i*20) + 740.0f, 100.0f}), m);
+    m = zoro::Mat3Multiply(zoro::Mat3Scale(20, 20), m);
+    m = zoro::Mat3Multiply(zoro::Mat3Rotate(-3.14f/2), m);
+
+    for (int i = 0; i < ship.kNPoints; i++)
+    {
+      zoro::Vec3 tmp = zoro::Mat3TransformVec3(m, *(ship.g_points + i));
+      *(ship.dr_points + i) = {tmp.x, tmp.y};
+    }
+    esat::DrawSetStrokeColor(ship.color.r, ship.color.g, ship.color.b, 255);
+    esat::DrawSetFillColor(ship.color.r, ship.color.g, ship.color.b, 20);
+    esat::DrawSolidPath(&ship.dr_points[0].x, ship.kNPoints);
+  }
+  
+}
+
+// ----------------------------------- Interface -----------------------------------
+
+void callButtonFunction(int id){
+  switch (id)
+  {
+  case 0:
+    startNewGame();
+    printf("\n -> NEW GAME <-");
+    break;
+  
+  default:
+    break;
+  }
+}
+
+void addButtonToList(TButton b){
+  TButton *newbutton = (TButton*) malloc(1 * sizeof(TButton));
+
+  newbutton->pos = b.pos;
+  newbutton->dimensions = b.dimensions;
+  newbutton->idFunction = b.idFunction;
+  newbutton->windowContext = b.windowContext;
+  newbutton->fontSize = b.fontSize;
+  newbutton->text = b.text;
+
+  newbutton->next = InterfaceList;
+  InterfaceList = newbutton;
+}
+
+void initInterfaceData(){
+
+  TButton newButton;
+  newButton.text = (char*) malloc(40 * sizeof(char)); // 40 chars maximum
+
+  newButton.fontSize = 40;
+  
+  newButton.text = "start";
+  newButton.idFunction = 0;
+  newButton.pos = {400,400};
+  newButton.windowContext = MENU;
+  newButton.dimensions = { 400,40}; 
+
+  addButtonToList(newButton);
+
+  newButton.text = "scoreboard";
+  newButton.idFunction = 1;
+  newButton.pos = {400,480};
+  newButton.windowContext = MENU;
+  newButton.dimensions = { 400,40}; 
+
+  addButtonToList(newButton);
+
+  newButton.text = "credits";
+  newButton.idFunction = 1;
+  newButton.pos = {400,560};
+  newButton.windowContext = MENU;
+  newButton.dimensions = { 400,40};
+
+  addButtonToList(newButton);
+}
+
+void paintMenu(){
+
+  TButton *p = InterfaceList;
+  while (p != nullptr)
+  {
+    
+    if (GAMESTATE == p->windowContext)
+    {
+      zoro::Vec2 finalTextPos;
+      
+      *(sqPoints + 0) = p->pos;
+      (*(sqPoints + 0)).x -= p->dimensions.x / 2;
+      (*(sqPoints + 0)).y -= p->dimensions.y / 2;
+
+      *(sqPoints + 1) = p->pos;
+      (*(sqPoints + 1)).x += p->dimensions.x / 2;
+      (*(sqPoints + 1)).y -= p->dimensions.y / 2;
+
+      *(sqPoints + 2) = p->pos;
+      (*(sqPoints + 2)).x += p->dimensions.x / 2;
+      (*(sqPoints + 2)).y += p->dimensions.y / 2;
+
+      *(sqPoints + 3) = p->pos;
+      (*(sqPoints + 3)).x -= p->dimensions.x / 2;
+      (*(sqPoints + 3)).y += p->dimensions.y / 2;
+      
+      float mx,my;
+      mx = esat::MousePositionX();
+      my = esat::MousePositionY();
+      if ((mx <= (*(sqPoints + 1)).x && mx >= (*(sqPoints + 0)).x) &&
+          (my <= (*(sqPoints + 2)).y && my >= (*(sqPoints + 0)).y))
+      {
+        if(esat::MouseButtonDown(0)){
+          callButtonFunction(p->idFunction);
+        }
+
+        esat::DrawSetFillColor(255,255,255,255);
+        esat::DrawSetStrokeColor(255,255,255,255);
+        esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+        esat::DrawSetFillColor(0,0,0,255);
+      }else{
+        esat::DrawSetFillColor(255,255,255,10);
+        esat::DrawSetStrokeColor(255,255,255,255);
+        esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+        esat::DrawSetFillColor(255,255,255,255);
+      }
+      
+      
+
+      
+
+      
+      esat::DrawSetTextSize(p->fontSize);
+    
+      finalTextPos.y = p->pos.y + (p->dimensions.y / 2);  // 1 fontsize = 0.75pixels
+      finalTextPos.y -= (p->dimensions.y -  p->fontSize * 0.75)/2;
+
+      finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
+      finalTextPos.x +=  (p->dimensions.x - strlen(p->text)*((p->fontSize/2) + 4))/2;   // widthLetter = (fontsize / 2) + 4
+
+      esat::DrawText(finalTextPos.x , finalTextPos.y, p->text);
+    }
+  
+    p = p->next;
+  }
+  
+  
+
+
+}
+
 // ----------------------------------- Input -----------------------------------
 
 void input()
 {
 
   ship.acceleration = {0.0f, 0.0f};
+
   if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
   {
     ship.acceleration.x = cos(ship.angle) * 0.19;
@@ -993,9 +1307,10 @@ void ClearDrawCoolEffectUwU()
 
 void freeMemory()
 {
+  //  OwO
 }
 
-//
+// ----------------------------------- Managment -----------------------------------
 
 void startNewGame()
 {
@@ -1021,15 +1336,21 @@ void startNewGame()
 void CEO()
 {
 
+  
   switch (GAMESTATE)
   {
   case MENU:
-
-    startNewGame();
-    printf("\n -> NEW GAME <-");
+    
+    esat::DrawSetFillColor(255,255,255,255);
+    esat::DrawSetTextSize(80);
+    esat::DrawText(190,200,"asteroids");
     break;
 
   case LOGIN:
+
+    break;
+
+  case SIGNUP:
 
     break;
 
@@ -1044,11 +1365,14 @@ void CEO()
     ufoManager();
 
     shipManager();
+
+    paintGUI();
     break;
 
   default:
     break;
   }
+  paintMenu();
 }
 
 int esat::main(int argc, char **argv)
@@ -1062,6 +1386,7 @@ int esat::main(int argc, char **argv)
   initAstData();
   initShip(&ship);
   init();
+  initInterfaceData();
 
   while (esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape))
   {

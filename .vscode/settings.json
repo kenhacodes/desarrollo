@@ -64,6 +64,9 @@
     "xstring": "cpp",
     "xtree": "cpp",
     "xiosbase": "cpp",
-    "cmath": "cpp"
+    "cmath": "cpp",
+    "system_error": "cpp",
+    "xlocnum": "cpp",
+    "xtr1common": "cpp"
   }
 }

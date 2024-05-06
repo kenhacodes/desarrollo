@@ -232,14 +232,32 @@ namespace ast
     return (Lista == nullptr);
   }
 
-  int ListLength(TAsteroid *lista)
+  int ListLength(TAsteroid *lista, bool weighted)
   {
     int l = 0;
     TAsteroid *p = lista;
 
-    while ((p)->next != nullptr)
+    while (p != nullptr)
     {
-      l++;
+      if (weighted)
+      {
+        switch (p->size)
+        {
+        case SMALL:
+          l++;
+          break;
+        case MID:
+          l+=2;
+        case BIG:
+          l+=4;
+        default:
+          break;
+        }
+      }else{
+        l++;  
+      }
+      
+      
       p = (p)->next;
     }
     return l;
