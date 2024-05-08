@@ -4,8 +4,6 @@
 
 namespace ast
 {
-
-
   enum AsteroidSize
   {
     SMALL = 0,
@@ -247,17 +245,18 @@ namespace ast
           l++;
           break;
         case MID:
-          l+=2;
+          l += 2;
         case BIG:
-          l+=4;
+          l += 4;
         default:
           break;
         }
-      }else{
-        l++;  
       }
-      
-      
+      else
+      {
+        l++;
+      }
+
       p = (p)->next;
     }
     return l;
@@ -287,7 +286,7 @@ namespace ast
       (*lista)->prev = nuevo;
       *lista = nuevo;
     }
-    //free(in_asteroid);
+    // free(in_asteroid);
     in_asteroid = nullptr;
   }
 
@@ -298,15 +297,13 @@ namespace ast
 
     if (*lista == nodeToDelete)
       *lista = nodeToDelete->next;
-    
+
     if (nodeToDelete->next != nullptr)
       nodeToDelete->next->prev = nodeToDelete->prev;
-
 
     if (nodeToDelete->prev != nullptr)
       nodeToDelete->prev->next = nodeToDelete->next;
     nodeToDelete = nullptr;
     free(nodeToDelete);
-    
   }
 };
