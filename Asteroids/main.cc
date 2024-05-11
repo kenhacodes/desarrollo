@@ -417,54 +417,64 @@ void shipColision()
 
   for (int i = 0; i < 5; i++)
   {
-    shipPoint = *(ship.dr_points + i);
-
-    while (p != nullptr)
+    if (i != 2 && i != 3)
     {
-      data = (astDataTypes + p->type);
-      colP = data->col;
-      if (checkColP(colP, p, shipPoint, false))
-      {
-        bool colisionWithEmpty = false;
-        colP = colP->next;
+      shipPoint = *(ship.dr_points + i);
 
-        if (colP == nullptr)
+      while (p != nullptr)
+      {
+        data = (astDataTypes + p->type);
+        colP = data->col;
+        if (checkColP(colP, p, shipPoint, false))
         {
-          // Destroy ship
-          ship.lives--;
-          shipDeath();
-          return;
-        }
-        else
-        {
-          while (colP != nullptr)
-          {
-            if (checkColP(colP, p, shipPoint, true))
-            {
-              colisionWithEmpty = true;
-            }
-            colP = colP->next;
-          }
-          if (!colisionWithEmpty)
+          bool colisionWithEmpty = false;
+          colP = colP->next;
+
+          if (colP == nullptr)
           {
             // Destroy ship
             ship.lives--;
             shipDeath();
             return;
           }
+          else
+          {
+            while (colP != nullptr)
+            {
+              if (checkColP(colP, p, shipPoint, true))
+              {
+                colisionWithEmpty = true;
+              }
+              colP = colP->next;
+            }
+            if (!colisionWithEmpty)
+            {
+              // Destroy ship
+              ship.lives--;
+              shipDeath();
+              return;
+            }
+          }
         }
+        p = p->next;
       }
-      p = p->next;
     }
-    p = asteroidList;
-    while (p != nullptr)
+  }
+
+  p = asteroidList;
+  int counter = 0;
+
+  while (p != nullptr)
+  {
+    data = (astDataTypes + p->type);
+    colP = data->col;
+    
+    for (int j = 0; j < colP->NumColPoints - 1; j++)
     {
-      data = (astDataTypes + p->type);
-      colP = data->col;
-      int counter = 0;
+      counter = 0;
       for (int i = 0; i < 3; i++)
       {
-        
+
         switch (i)
         {
         case 0:
@@ -472,8 +482,8 @@ void shipColision()
           b = {(ship.g_points + 1)->x, (ship.g_points + 1)->y};
           break;
         case 1:
-          a = {(ship.g_points + 4)->x, (ship.g_points + 4)->y};
-          b = {(ship.g_points + 1)->x, (ship.g_points + 1)->y};
+          a = {(ship.g_points + 1)->x, (ship.g_points + 1)->y};
+          b = {(ship.g_points + 4)->x, (ship.g_points + 4)->y};
           break;
         case 2:
           a = {(ship.g_points + 4)->x, (ship.g_points + 4)->y};
@@ -488,36 +498,29 @@ void shipColision()
         temp = zoro::Mat3TransformVec3(ship.M, {b.x, b.y, 1.0f});
         b = {temp.x, temp.y};
 
-        esat::DrawSetStrokeColor(255, 0, 0, 255);
-        esat::DrawLine(a.x, a.y, b.x, b.y);
-        esat::DrawSetStrokeColor(255, 0, 0, 150);
+        temp = zoro::Mat3TransformVec3(p->M, {(colP->points + j)->x, (colP->points + j)->y, 1.0f});
+        pos = {temp.x, temp.y};
+        // esat::DrawLine(a.x, a.y, pos.x, pos.y);
+        float value = DotVec2(zoro::SubtractVec2(pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
 
-        for (int i = 0; i < colP->NumColPoints; i++)
-        {
-          temp = zoro::Mat3TransformVec3(p->M, {(colP->points + i)->x, (colP->points + i)->y, 1.0f});
-          pos = {temp.x, temp.y};
-          // esat::DrawLine(a.x, a.y, pos.x, pos.y);
-          float value = DotVec2(zoro::SubtractVec2(pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(a, b))));
-          // printf("\n%f", value);
-          if (value > 0.0f)
-          {
-            counter++;
-          }
-        }
         
-        if (counter == 3)
+        if (value < 0.0f)
         {
-          esat::DrawSetStrokeColor(255, 0, 0, 150);
-          esat::DrawLine(a.x, a.y, pos.x, pos.y);
-          // Destroy ship
-          // ship.lives--;
-          // shipDeath();
-          // return;
+          counter++;
         }
       }
-
-      p = p->next;
+      
+      if (counter == 3)
+      {
+        // Destroy ship
+        ship.lives--;
+        shipDeath();
+        return;
+      }
+      
     }
+
+    p = p->next;
   }
 }
 
@@ -1623,11 +1626,15 @@ void startNewGame()
   {
     numAsteroidsToGenerate += level * 2;
   }
+
   // 2 - 3 - 4 - 5  - 6
   // 4 - 6 - 8 - 10 - 12 + velocity
-  while (asteroidList != nullptr)
+  ast::TAsteroid *current = asteroidList;
+  while (current != nullptr)
   {
-    ast::Delete(&asteroidList, asteroidList);
+    ast::TAsteroid *next = current->next;
+    ast::Delete(&asteroidList, current);
+    current = next;
   }
 
   for (int i = 0; i < numAsteroidsToGenerate; i++)
