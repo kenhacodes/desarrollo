@@ -61,12 +61,13 @@ struct TShip
 
 struct TUser
 {
-  char *name;     // 20
-  char *email;    // 32
-  char *lastname; // 20
-  char *pass;     // 24
-  char *prov;     // 16
-  char *country;  // 20
+  char *nick;
+  char *email;    // 30
+  char *name;     // 30
+  char *lastname; // 30
+  char *pass;     // 30
+  char *prov;     // 30
+  char *country;  // 30
   int credits;    // 4
 };
 
@@ -98,6 +99,7 @@ struct TButton
 enum WindowState GAMESTATE = MENU;
 int level = 1;
 
+TUser *user;
 TShip ship;
 TShip ship2; // player 2
 
@@ -314,6 +316,17 @@ void initAstData()
   *(ufoDataDown.g_points + 5) = {0.77f, 0.1f, 1.0f};
 }
 
+void initEmptyUser(TUser *user){
+  user->country = (char*) malloc(30 * sizeof(char));
+  user->email =  (char*) malloc(30 * sizeof(char));
+  user->lastname = (char*) malloc(30 * sizeof(char));
+  user->name = (char*) malloc(30 * sizeof(char));
+  user->nick = (char*) malloc(30 * sizeof(char));
+  user->pass = (char*) malloc(30 * sizeof(char));
+  user->prov = (char*) malloc(30 * sizeof(char));
+  user->credits = 0;
+}
+
 // ----------------------------------- Ship -----------------------------------
 
 void initShip(TShip *ship)
@@ -468,7 +481,7 @@ void shipColision()
   {
     data = (astDataTypes + p->type);
     colP = data->col;
-    
+
     for (int j = 0; j < colP->NumColPoints - 1; j++)
     {
       counter = 0;
@@ -503,13 +516,12 @@ void shipColision()
         // esat::DrawLine(a.x, a.y, pos.x, pos.y);
         float value = DotVec2(zoro::SubtractVec2(pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
 
-        
         if (value < 0.0f)
         {
           counter++;
         }
       }
-      
+
       if (counter == 3)
       {
         // Destroy ship
@@ -517,7 +529,6 @@ void shipColision()
         shipDeath();
         return;
       }
-      
     }
 
     p = p->next;
@@ -1306,6 +1317,7 @@ void DrawPointer(){
 
 void callButtonFunction(int id)
 {
+  
   switch (id)
   {
   case 0:
@@ -1342,9 +1354,16 @@ void addButtonToList(TButton b)
   newbutton->idFunction = b.idFunction;
   newbutton->windowContext = b.windowContext;
   newbutton->fontSize = b.fontSize;
-  newbutton->text = b.text;
-  newbutton->focused = false;
   newbutton->isInput = b.isInput;
+  if (b.isInput)
+  {
+    newbutton->text = (char*) malloc(20 * sizeof(char));
+  }else{
+    newbutton->text = b.text;
+  }
+  
+  newbutton->focused = false;
+  
 
   newbutton->next = InterfaceList;
   InterfaceList = newbutton;
@@ -1452,17 +1471,25 @@ void initInterfaceData()
 
   // Text Inputs
   newButton.isInput = true;
+
+  newButton.text = "prueba";
+  newButton.idFunction = -1;
+  newButton.pos = {400, 360};
+  newButton.windowContext = LOGIN;
+  newButton.dimensions = {400, 40};
+
+  addButtonToList(newButton);
 }
 
 void paintMenu()
 {
+  zoro::Vec2 finalTextPos;
+  float mx, my;
   TButton *p = InterfaceList;
   while (p != nullptr)
   {
     if (GAMESTATE == p->windowContext)
     {
-      zoro::Vec2 finalTextPos;
-
       *(sqPoints + 0) = p->pos;
       (*(sqPoints + 0)).x -= p->dimensions.x / 2;
       (*(sqPoints + 0)).y -= p->dimensions.y / 2;
@@ -1479,17 +1506,15 @@ void paintMenu()
       (*(sqPoints + 3)).x -= p->dimensions.x / 2;
       (*(sqPoints + 3)).y += p->dimensions.y / 2;
 
-      if (esat::MouseButtonUp(0))
-        currentFocus = nullptr;
-
-      float mx, my;
       mx = esat::MousePositionX();
       my = esat::MousePositionY();
+
       if ((mx <= (*(sqPoints + 1)).x && mx >= (*(sqPoints + 0)).x) &&
           (my <= (*(sqPoints + 2)).y && my >= (*(sqPoints + 0)).y))
       {
         if (esat::MouseButtonUp(0))
         {
+          esat::ResetBufferdKeyInput();
           if (p->isInput)
           {
             p->focused = true;
@@ -1510,11 +1535,23 @@ void paintMenu()
       }
       else
       {
-        esat::DrawSetFillColor(255, 255, 255, 10);
-        esat::DrawSetStrokeColor(255, 255, 255, 255);
-        esat::DrawSolidPath(&sqPoints[0].x, 4);
 
-        esat::DrawSetFillColor(255, 255, 255, 255);
+        if (p->focused)
+        {
+          esat::DrawSetFillColor(255, 255, 255, 200);
+          esat::DrawSetStrokeColor(255, 255, 255, 255);
+          esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+          esat::DrawSetFillColor(0, 0, 0, 255);
+        }
+        else
+        {
+          esat::DrawSetFillColor(255, 255, 255, 10);
+          esat::DrawSetStrokeColor(255, 255, 255, 255);
+          esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+          esat::DrawSetFillColor(255, 255, 255, 255);
+        }
       }
 
       esat::DrawSetTextSize(p->fontSize);
@@ -1532,60 +1569,100 @@ void paintMenu()
   }
 }
 
+void interfaceManager()
+{
+
+  paintMenu();
+}
+
 // ----------------------------------- Input -----------------------------------
 
 void input()
 {
 
-  ship.acceleration = {0.0f, 0.0f};
-
-  if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
+  if (GAMESTATE == INGAME)
   {
-    ship.acceleration.x = cos(ship.angle) * 0.19;
-    ship.acceleration.y = sin(ship.angle) * 0.19;
-    ship.IsPressing = !ship.IsPressing;
+    ship.acceleration = {0.0f, 0.0f};
+
+    if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
+    {
+      ship.acceleration.x = cos(ship.angle) * 0.19;
+      ship.acceleration.y = sin(ship.angle) * 0.19;
+      ship.IsPressing = !ship.IsPressing;
+    }
+    if (esat::IsSpecialKeyUp(esat::kSpecialKey_Up))
+    {
+      ship.IsPressing = false;
+    }
+
+    if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Left))
+    {
+      ship.angle -= 0.075;
+    }
+    if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Right))
+    {
+      ship.angle += 0.075;
+    }
+    if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Down))
+    {
+      ship.acceleration.x = -cos(ship.angle) * 0.05;
+      ship.acceleration.y = -sin(ship.angle) * 0.05;
+    }
+
+    if (esat::IsKeyDown('H'))
+    {
+      ship.pos.x = 25.0f + rand() % 750;
+      ship.pos.y = 25.0f + rand() % 750;
+      ship.isInvincible = true;
+      InvincibleTime = esat::Time();
+      PaintTime = esat::Time();
+    }
+
+    if (esat::IsSpecialKeyDown(esat::kSpecialKey_Space) && !ship.isInvincible)
+    {
+
+      TShot shot;
+
+      shot.dir.x = cos(ship.angle);
+      shot.dir.y = sin(ship.angle);
+      shot.pos = zoro::SumVec2(ship.pos, zoro::ScaleVec2(shot.dir, ship.scale * 0.9));
+      shot.isEnemy = false;
+      shot.next = nullptr;
+
+      addShot(shot);
+      // ast::Delete(&asteroidList);
+    }
   }
-  if (esat::IsSpecialKeyUp(esat::kSpecialKey_Up))
+
+  if (esat::MouseButtonDown(0) && currentFocus != nullptr)
   {
-    ship.IsPressing = false;
+
+    currentFocus->focused = false;
+    currentFocus = nullptr;
+    
   }
 
-  if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Left))
+  if (currentFocus != nullptr)
   {
-    ship.angle -= 0.075;
-  }
-  if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Right))
-  {
-    ship.angle += 0.075;
-  }
-  if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Down))
-  {
-    ship.acceleration.x = -cos(ship.angle) * 0.05;
-    ship.acceleration.y = -sin(ship.angle) * 0.05;
-  }
+    TextBuffer = currentFocus->text;
+    char c;
+    
+    c = esat::GetNextPressedKey();
+    printf("%c", c);
 
-  if (esat::IsKeyDown('H'))
-  {
-    ship.pos.x = 25.0f + rand() % 750;
-    ship.pos.y = 25.0f + rand() % 750;
-    ship.isInvincible = true;
-    InvincibleTime = esat::Time();
-    PaintTime = esat::Time();
-  }
+    if (esat::IsSpecialKeyDown(esat::kSpecialKey_Backspace) && *(TextBuffer+0) != '\0')
+    {
+        //printf("\n%d ,%s", strlen(TextBuffer), TextBuffer);
+        *(TextBuffer + (strlen(TextBuffer) - 1)) = '\0';
+    }
+    if (c != '\0' && strlen(TextBuffer) < 20)
+    {
+      (*(TextBuffer + strlen(TextBuffer))) = c; 
+    }
+    
+    
 
-  if (esat::IsSpecialKeyDown(esat::kSpecialKey_Space) && !ship.isInvincible)
-  {
-
-    TShot shot;
-
-    shot.dir.x = cos(ship.angle);
-    shot.dir.y = sin(ship.angle);
-    shot.pos = zoro::SumVec2(ship.pos, zoro::ScaleVec2(shot.dir, ship.scale * 0.9));
-    shot.isEnemy = false;
-    shot.next = nullptr;
-
-    addShot(shot);
-    // ast::Delete(&asteroidList);
+    currentFocus->text = TextBuffer;
   }
 }
 
@@ -1655,7 +1732,7 @@ void startNewGame()
 
 void CEO()
 {
-
+  input();
   switch (GAMESTATE)
   {
   case MENU:
@@ -1677,8 +1754,6 @@ void CEO()
 
   case INGAME:
 
-    input();
-
     shotsManager();
 
     asteroidsManager();
@@ -1698,7 +1773,7 @@ void CEO()
   default:
     break;
   }
-  paintMenu();
+  interfaceManager();
 }
 
 int esat::main(int argc, char **argv)
@@ -1713,6 +1788,7 @@ int esat::main(int argc, char **argv)
   initShip(&ship);
   init();
   initInterfaceData();
+  initEmptyUser(user);
 
   while (esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape))
   {
