@@ -1,0 +1,15 @@
+Animal
+volar
+Pajaro
+NULL
+NULL
+respira
+pingu
+NULL
+NULL
+pez
+NULL
+NULL
+Coche
+NULL
+NULL

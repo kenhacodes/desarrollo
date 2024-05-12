@@ -99,7 +99,7 @@ struct TButton
 enum WindowState GAMESTATE = MENU;
 int level = 1;
 
-TUser *user;
+TUser *user1 = nullptr;
 TShip ship;
 TShip ship2; // player 2
 
@@ -317,11 +317,14 @@ void initAstData()
 }
 
 void initEmptyUser(TUser *user){
+  user = (TUser*) malloc(sizeof(TUser));
+
   user->country = (char*) malloc(30 * sizeof(char));
   user->email =  (char*) malloc(30 * sizeof(char));
   user->lastname = (char*) malloc(30 * sizeof(char));
   user->name = (char*) malloc(30 * sizeof(char));
   user->nick = (char*) malloc(30 * sizeof(char));
+  user->nick = " ";
   user->pass = (char*) malloc(30 * sizeof(char));
   user->prov = (char*) malloc(30 * sizeof(char));
   user->credits = 0;
@@ -1472,7 +1475,7 @@ void initInterfaceData()
   // Text Inputs
   newButton.isInput = true;
 
-  newButton.text = "prueba";
+  newButton.text = user1->nick;
   newButton.idFunction = -1;
   newButton.pos = {400, 360};
   newButton.windowContext = LOGIN;
@@ -1787,8 +1790,9 @@ int esat::main(int argc, char **argv)
   initAstData();
   initShip(&ship);
   init();
+  
+  initEmptyUser(user1);
   initInterfaceData();
-  initEmptyUser(user);
 
   while (esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape))
   {
