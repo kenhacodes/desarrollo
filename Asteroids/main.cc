@@ -61,14 +61,17 @@ struct TShip
 
 struct TUser
 {
-  char *nick;
-  char *email;    // 30
-  char *name;     // 30
-  char *lastname; // 30
-  char *pass;     // 30
-  char *prov;     // 30
-  char *country;  // 30
-  int credits;    // 4
+  int id;
+  char *nick;     // 40
+  char *pass;     // 40
+  char *email;    // 40
+  char *name;     // 40
+  char *lastname; // 40
+  char *prov;     // 40
+  char *country;  // 40
+  char *birthday;
+  int credits;
+  bool isAdmin;
 };
 
 struct TShot
@@ -93,13 +96,26 @@ struct TButton
   zoro::Vec2 dimensions;
   WindowState windowContext;
   char *text;
+  char *label;
+  bool hasLabel;
   TButton *next;
 };
 
+struct TUserList
+{
+  TUser *user;
+  TUserList *next;
+  TUserList *prev;
+};
+
 enum WindowState GAMESTATE = MENU;
+bool isLogged = false;
 int level = 1;
 
 TUser *user1 = nullptr;
+TUser *tempUser = nullptr;
+TUserList *UserList = nullptr;
+
 TShip ship;
 TShip ship2; // player 2
 
@@ -113,8 +129,22 @@ TUfo ufo;
 
 zoro::Vec2 *sqPoints; // Square points
 
-char *TextBuffer;
+char *TextBuffer = nullptr;
+
 TButton *currentFocus = nullptr;
+
+TButton *username = nullptr;
+TButton *password = nullptr;
+TButton *username_Signup = nullptr;
+TButton *password_Signup = nullptr;
+TButton *email = nullptr;
+TButton *name = nullptr;
+TButton *lastname = nullptr;
+TButton *prov = nullptr;
+TButton *country = nullptr;
+TButton *birthday = nullptr;
+
+bool lookingNextButton = false;
 
 //    TIME VARIABLES
 unsigned char fps = 60;
@@ -144,11 +174,18 @@ double UFOCooldownTime = 0.0f;
 const float MenuCooldownTimeRef = 300.0f;
 double MenuCooldownTime = 0.0f;
 
+const float BackspaceCooldownTimeRef = 80.0f;
+double BackspaceCooldownTime = 0.0f;
+
 const float ShipDyingAnimTimeRef = 1000.0f;
 double ShipDyingAnimTime = 0.0f;
 
 //  CONSTANTS
+FILE *f;
+
 const float WINDOW_X = 800.0f, WINDOW_Y = 800.0f;
+
+const int newUserCredit = 10;
 
 const float shotMaxDistance = 700.0f;
 const int totalAsteroidTypes = 4;
@@ -161,6 +198,264 @@ const float shipScale = 30.0f;
 void startNewGame();
 bool checkColP(ast::TColPoints *colP, ast::TAsteroid *p, zoro::Vec2 pos, bool inner);
 
+// -----------------------------------User Data -----------------------------------
+
+void cleanChar(char *c)
+{
+  for (int i = 0; i < 40; i++)
+    *(c + i) = '\0';
+}
+
+void EmptyUserData(TUser *user){
+  cleanChar(user->nick);
+  cleanChar(user->email);
+  cleanChar(user->country);
+  cleanChar(user->birthday);
+  cleanChar(user->lastname);
+  cleanChar(user->name);
+  cleanChar(user->pass);
+  cleanChar(user->prov);
+  user->id = 0;
+  user->isAdmin = false;
+
+}
+
+void PrintUser(TUser *user){
+  printf("\nID: %d\nNick: %s\nPass: %s\nEmail: %s\nName: %s\nLastName: %s\nProv: %s\nCountry: %s\nCredits: %d\n ",
+  user->id,user->nick,user->pass, user->email,user->name, user->lastname, user->prov, user->country, user->credits);
+
+}
+
+void PrintUserList(){
+  TUserList *p = UserList;
+  printf("----------------------------\n");
+  while (p != nullptr)
+  {
+    PrintUser(p->user);
+    p = p->next;
+  }
+  printf("----------------------------\n");
+}
+
+void initEmptyUser(TUser **user)
+{
+  *user = (TUser *)malloc(sizeof(TUser));
+  (*(user))->birthday = (char *)malloc(40 * sizeof(char));
+  (*(user))->country = (char *)malloc(40 * sizeof(char));
+  (*(user))->email = (char *)malloc(40 * sizeof(char));
+  (*(user))->lastname = (char *)malloc(40 * sizeof(char));
+  (*(user))->name = (char *)malloc(40 * sizeof(char));
+  (*(user))->nick = (char *)malloc(40 * sizeof(char));
+
+  (*(user))->pass = (char *)malloc(40 * sizeof(char));
+  (*(user))->prov = (char *)malloc(40 * sizeof(char));
+  (*(user))->credits = 0;
+  (*(user))->id = 0;
+  (*(user))->isAdmin = false;
+
+  printf("\nEmpty user init.\n");
+}
+
+int UserListLength()
+{
+  int length = 0;
+
+  TUserList *p = UserList;
+
+  while (p != nullptr)
+  {
+    length++;
+    p = p->next;
+  }
+
+  return length;
+}
+
+void insertUser(TUser *newUser, bool isSignUp)
+{
+    TUserList *ulist = UserList;
+
+    TUserList *newUserInList = (TUserList *)malloc(sizeof(TUserList));
+
+    // Initialize newUserInList
+    initEmptyUser(&newUserInList->user);
+
+    // Correctly assign user properties
+    newUserInList->user->id = UserListLength() + 1;
+
+    if (isSignUp)
+    {
+        newUserInList->user->credits = newUserCredit;
+    }
+    else
+    {
+        newUserInList->user->credits = newUser->credits;
+    }
+
+    // Assuming these are pointers to strings and need to be copied
+    newUserInList->user->email = strdup(newUser->email);
+    newUserInList->user->isAdmin = newUser->isAdmin;
+    newUserInList->user->lastname = strdup(newUser->lastname);
+    newUserInList->user->name = strdup(newUser->name);
+    newUserInList->user->nick = strdup(newUser->nick);
+    newUserInList->user->pass = strdup(newUser->pass);
+    newUserInList->user->prov = strdup(newUser->prov);
+    newUserInList->user->country = strdup(newUser->country);
+    newUserInList->user->birthday = strdup(newUser->birthday);
+
+    // Setting the links in the doubly linked list
+    newUserInList->next = ulist;
+    newUserInList->prev = nullptr;
+
+    if (ulist != nullptr)
+    {
+        ulist->prev = newUserInList;
+    }
+
+    // Update the global UserList to point to the new head
+    UserList = newUserInList;
+
+    printf("USER ADDED TO LIST\n");
+}
+
+bool deleteUser(int uid){
+
+  TUserList *ulist = UserList;
+  bool isDeleted = false;
+
+  while (ulist != nullptr && !isDeleted)
+  {
+    if (ulist->user->id == uid)
+    {
+      if (ulist->prev != nullptr)
+      {
+        ulist->prev->next = ulist->next;
+      }
+      if (ulist->next != nullptr)
+      {
+        ulist->next->prev = ulist->prev;
+      }
+      free(ulist->user);
+      free(ulist);
+      isDeleted = true;
+    }
+    ulist = ulist->next;
+  }
+  return isDeleted;
+}
+
+void SaveDataUser()
+{
+
+  if (fopen("./resources/users.zoro", "r+b") == NULL)
+  {
+    f = fopen("./resources/users.zoro", "w+b");
+    fclose(f);
+  }
+
+  f = fopen("./resources/users.zoro", "w+b");
+
+  TUserList *p = UserList;
+
+  while (p != nullptr)
+  {
+
+    tempUser = p->user;
+
+    fwrite(&tempUser->id, sizeof(int), 1, f);
+    fwrite(tempUser->nick, sizeof(char), 40, f);
+    fwrite(tempUser->pass, sizeof(char), 40, f);
+    fwrite(tempUser->email, sizeof(char), 40, f);
+    fwrite(tempUser->name, sizeof(char), 40, f);
+    fwrite(tempUser->lastname, sizeof(char), 40, f);
+    fwrite(tempUser->prov, sizeof(char), 40, f);
+    fwrite(tempUser->country, sizeof(char), 40, f);
+    fwrite(tempUser->birthday, sizeof(char), 40, f);
+    fwrite(&tempUser->credits, sizeof(int), 1, f);
+    fwrite(&tempUser->isAdmin, sizeof(bool), 1, f);
+
+    p = p->next;
+  }
+
+  fclose(f);
+}
+
+void LoadUserList()
+{
+
+  if (fopen("./resources/users.zoro", "r+b") != NULL)
+  {
+
+    f = fopen("./resources/users.zoro", "r+b");
+
+    while (fread(&tempUser->id, sizeof(int), 1, f) == 1)
+    {
+
+      fread(tempUser->nick, sizeof(char), 40, f);
+      fread(tempUser->pass, sizeof(char), 40, f);
+      fread(tempUser->email, sizeof(char), 40, f);
+      fread(tempUser->name, sizeof(char), 40, f);
+      fread(tempUser->lastname, sizeof(char), 40, f);
+      fread(tempUser->prov, sizeof(char), 40, f);
+      fread(tempUser->country, sizeof(char), 40, f);
+      fread(tempUser->birthday, sizeof(char), 40, f);
+      fread(&tempUser->credits, sizeof(int), 1, f);
+      fread(&tempUser->isAdmin, sizeof(bool), 1, f);
+
+      insertUser(tempUser, false);
+    }
+
+    fclose(f);
+  }
+  else
+  {
+    printf("SAVE DATA DOES NOT EXIST.\n");
+  }
+}
+
+void LoadDataUser()
+{
+
+  if (fopen("./resources/users.zoro", "r+b") != NULL)
+  {
+    f = fopen("./resources/users.zoro", "r+b");
+
+    fread(user1->nick, sizeof(char), 40, f);
+    fread(user1->pass, sizeof(char), 40, f);
+
+    printf("--->User:%s\n->Pass: %s\n", user1->nick, user1->pass);
+
+    fclose(f);
+  }
+  else
+  {
+    printf("SAVE DATA DOES NOT EXIST.\n");
+  }
+}
+
+bool CheckLogin(TUser *user)
+{
+    TUserList *ulist = UserList;
+    bool match = false; 
+
+    while (ulist != nullptr && !match)
+    {
+      if (strcmp(ulist->user->nick, user1->nick) == 0 && strcmp(ulist->user->pass, user1->pass) == 0)
+      {
+      printf("\n Correct Login \n");
+      match = true;
+      }
+
+      ulist = ulist->next;
+    }
+    
+
+    
+
+   
+  return match;
+}
+
 // ----------------------------------- Inits -----------------------------------
 
 ast::TAsteroid *randomAsteroid()
@@ -169,12 +464,11 @@ ast::TAsteroid *randomAsteroid()
 
   asteroidNew->pos.x = 0.0f + rand() % 750;
   asteroidNew->pos.y = 0.0f + rand() % 750;
-  /*
+
   if (rand() % 2 == 1)
     asteroidNew->pos.x += 750.0f;
   if (rand() % 2 == 1)
     asteroidNew->pos.y += 750.0f;
-  */
 
   asteroidNew->size = ast::BIG;
   asteroidNew->speed = asteroidSpeed;
@@ -198,6 +492,7 @@ void init()
   esat::DrawSetTextFont("./resources/fonts/Hyperspace.otf");
   shotlist = nullptr;
   InterfaceList = nullptr;
+
   for (int i = 0; i < totalAsteroidTypes; i++)
   {
     ast::GenerateAsteroidColPoints((astDataTypes + i));
@@ -205,6 +500,7 @@ void init()
 
   // Pointers
   TextBuffer = (char *)malloc(30 * sizeof(char));
+
   sqPoints = (zoro::Vec2 *)malloc(4 * sizeof(zoro::Vec2));
   ufo.pos = {400.0f, 410.0f};
   ufo.dir = {0.0f, 0.0f};
@@ -314,20 +610,6 @@ void initAstData()
   *(ufoDataDown.g_points + 3) = {-0.4f, 0.38f, 1.0f};
   *(ufoDataDown.g_points + 4) = {0.39f, 0.38f, 1.0f};
   *(ufoDataDown.g_points + 5) = {0.77f, 0.1f, 1.0f};
-}
-
-void initEmptyUser(TUser *user){
-  user = (TUser*) malloc(sizeof(TUser));
-
-  user->country = (char*) malloc(30 * sizeof(char));
-  user->email =  (char*) malloc(30 * sizeof(char));
-  user->lastname = (char*) malloc(30 * sizeof(char));
-  user->name = (char*) malloc(30 * sizeof(char));
-  user->nick = (char*) malloc(30 * sizeof(char));
-  user->nick = " ";
-  user->pass = (char*) malloc(30 * sizeof(char));
-  user->prov = (char*) malloc(30 * sizeof(char));
-  user->credits = 0;
 }
 
 // ----------------------------------- Ship -----------------------------------
@@ -978,7 +1260,7 @@ void checkColisionAsteroid(ast::TAsteroid *p)
   }
 }
 
-void asteroidsManager() // UWU
+void asteroidsManager()
 {
   ast::TAsteroid *p = asteroidList;
   if (asteroidList == nullptr)
@@ -1297,35 +1579,19 @@ void paintGUI()
 }
 
 // ----------------------------------- Interface -----------------------------------
-/*
-void DrawPointer(){
-    if(pointer.isActive){
-        if((int)(esat::Time() * 0.002f)%2==0){
-            esat::DrawLine(pointer.pos.x + strlen(pointer.compt) * 40*0.31f, pointer.pos.y,
-                           pointer.pos.x + strlen(pointer.compt) * 40*0.31f, pointer.pos.y + 40 * 0.7f);
-        }
-        if(strlen(pointer.compt) < pointer.aumsize){
-            *(pointer.compt + strlen(pointer.compt))=esat::GetNextPressedKey();
-            *(pointer.compt + strlen(pointer.compt)+1)='\0';
-        }
-        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Backspace)){
-            *(pointer.compt + strlen(pointer.compt)-1) = NULL;
-        }
-        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Enter)){
-            pointer.isActive = false;
-        }
-    }
-}
-*/
 
 void callButtonFunction(int id)
 {
-  
+
   switch (id)
   {
   case 0:
-    startNewGame();
-    printf("\n -> NEW GAME <-");
+    isLogged = CheckLogin(user1);
+    if (isLogged)
+    {
+      GAMESTATE = MENU;
+    }
+
     break;
   case 1:
     GAMESTATE = SCOREBOARD;
@@ -1340,7 +1606,29 @@ void callButtonFunction(int id)
     GAMESTATE = ADMIN;
     break;
   case 5:
-    GAMESTATE = LOGIN;
+
+    if (isLogged)
+    {
+      startNewGame();
+    }
+    else
+    {
+      GAMESTATE = LOGIN;
+    }
+
+    break;
+  case 6:
+    GAMESTATE = SIGNUP;
+    EmptyUserData(tempUser);
+    
+    break;
+  case 7:
+    // SignUp
+    PrintUser(tempUser);
+    insertUser(tempUser, true);
+    PrintUser(UserList->user);
+    SaveDataUser();
+    PrintUserList();
     break;
 
   default:
@@ -1348,7 +1636,7 @@ void callButtonFunction(int id)
   }
 }
 
-void addButtonToList(TButton b)
+TButton *addButtonToList(TButton b)
 {
   TButton *newbutton = (TButton *)malloc(1 * sizeof(TButton));
 
@@ -1358,28 +1646,34 @@ void addButtonToList(TButton b)
   newbutton->windowContext = b.windowContext;
   newbutton->fontSize = b.fontSize;
   newbutton->isInput = b.isInput;
+  newbutton->label = b.label;
+  newbutton->hasLabel = b.hasLabel;
+
   if (b.isInput)
   {
-    newbutton->text = (char*) malloc(20 * sizeof(char));
-  }else{
+    newbutton->text = (char *)malloc(40 * sizeof(char));
+  }
+  else
+  {
     newbutton->text = b.text;
   }
-  
+
   newbutton->focused = false;
-  
 
   newbutton->next = InterfaceList;
   InterfaceList = newbutton;
+  return newbutton;
 }
 
 void initInterfaceData()
 {
 
   TButton newButton;
-  newButton.text = (char *)malloc(40 * sizeof(char)); // 40 chars maximum
+  // newButton.text = (char *)malloc(40 * sizeof(char)); // 40 chars maximum
 
   newButton.fontSize = 40;
   newButton.focused = false;
+  newButton.hasLabel = false;
 
   // Buttons
   newButton.isInput = false;
@@ -1440,9 +1734,17 @@ void initInterfaceData()
 
   addButtonToList(newButton);
 
+  newButton.text = "Sign Up";
+  newButton.idFunction = 7;
+  newButton.pos = {400, 720};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {400, 40};
+
+  addButtonToList(newButton);
+
   newButton.text = "go back";
   newButton.idFunction = 5;
-  newButton.pos = {400, 640};
+  newButton.pos = {400, 760};
   newButton.windowContext = SIGNUP;
   newButton.dimensions = {400, 40};
 
@@ -1465,7 +1767,7 @@ void initInterfaceData()
   addButtonToList(newButton);
 
   newButton.text = "sign up";
-  newButton.idFunction = 4;
+  newButton.idFunction = 6;
   newButton.pos = {400, 560};
   newButton.windowContext = LOGIN;
   newButton.dimensions = {400, 40};
@@ -1473,15 +1775,102 @@ void initInterfaceData()
   addButtonToList(newButton);
 
   // Text Inputs
-  newButton.isInput = true;
 
-  newButton.text = user1->nick;
+  newButton.isInput = true;
   newButton.idFunction = -1;
+  newButton.hasLabel = true;
+
+  // Login Username
+  newButton.pos = {400, 240};
+  newButton.windowContext = LOGIN;
+  newButton.dimensions = {610, 40};
+  newButton.label = "Username";
+
+  username = addButtonToList(newButton);
+  user1->nick = username->text;
+  cleanChar(user1->nick);
+
+  // Login Pass
   newButton.pos = {400, 360};
   newButton.windowContext = LOGIN;
-  newButton.dimensions = {400, 40};
+  newButton.dimensions = {610, 40};
+  newButton.label = "Password";
 
-  addButtonToList(newButton);
+  password = addButtonToList(newButton);
+  user1->pass = password->text;
+  cleanChar(user1->pass);
+
+  // Sign Up Username
+  newButton.pos = {400, 80};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {610, 40};
+  newButton.label = "Username";
+  username_Signup = addButtonToList(newButton);
+ tempUser->nick = username_Signup->text;
+  cleanChar(user1->nick);
+
+  // Sign Up Pass
+  newButton.pos = {400, 160};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {610, 40};
+  newButton.label = "Password";
+  password_Signup = addButtonToList(newButton);
+   tempUser->pass = password_Signup->text;
+  cleanChar(user1->pass);
+
+  // Name
+  newButton.pos = {400, 240};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {610, 40};
+  newButton.label = "Name";
+  name = addButtonToList(newButton);
+  tempUser->name = name->text;
+  cleanChar(tempUser->name);
+
+  // Lastname
+  newButton.pos = {400, 320};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {610, 40};
+  newButton.label = "LastName";
+  lastname = addButtonToList(newButton);
+  tempUser->lastname = lastname->text;
+  cleanChar(tempUser->lastname);
+
+  // Email
+  newButton.pos = {400, 400};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {610, 40};
+  newButton.label = "Email";
+  email = addButtonToList(newButton);
+  tempUser->email = email->text;
+  cleanChar(tempUser->email);
+
+  // Prov
+  newButton.pos = {400, 480};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {610, 40};
+  newButton.label = "Province";
+  prov = addButtonToList(newButton);
+  tempUser->prov = prov->text;
+  cleanChar(tempUser->prov);
+
+  // Country
+  newButton.pos = {400, 560};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {610, 40};
+  newButton.label = "Country";
+  country = addButtonToList(newButton);
+  tempUser->country = country->text;
+  cleanChar(tempUser->country);
+
+  // Birthday
+  newButton.pos = {400, 640};
+  newButton.windowContext = SIGNUP;
+  newButton.dimensions = {610, 40};
+  newButton.label = "birthday";
+  birthday = addButtonToList(newButton);
+  tempUser->birthday = birthday->text;
+  cleanChar(tempUser->birthday);
 }
 
 void paintMenu()
@@ -1512,6 +1901,13 @@ void paintMenu()
       mx = esat::MousePositionX();
       my = esat::MousePositionY();
 
+      if (lookingNextButton)
+      {
+        p->focused = true;
+        currentFocus = p;
+        lookingNextButton = false;
+      }
+
       if ((mx <= (*(sqPoints + 1)).x && mx >= (*(sqPoints + 0)).x) &&
           (my <= (*(sqPoints + 2)).y && my >= (*(sqPoints + 0)).y))
       {
@@ -1529,7 +1925,6 @@ void paintMenu()
             MenuCooldownTime = esat::Time();
           }
         }
-
         esat::DrawSetFillColor(255, 255, 255, 255);
         esat::DrawSetStrokeColor(255, 255, 255, 255);
         esat::DrawSolidPath(&sqPoints[0].x, 4);
@@ -1566,6 +1961,15 @@ void paintMenu()
       finalTextPos.x += (p->dimensions.x - strlen(p->text) * ((p->fontSize / 2) + 4)) / 2; // widthLetter = (fontsize / 2) + 4
 
       esat::DrawText(finalTextPos.x, finalTextPos.y, p->text);
+
+      if (p->hasLabel)
+      {
+         esat::DrawSetFillColor(255, 255, 255, 255);
+        esat::DrawSetTextSize(p->fontSize / 2);
+        finalTextPos.y = p->pos.y - (p->dimensions.y / 2) - 4;
+        finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
+        esat::DrawText(finalTextPos.x, finalTextPos.y, p->label);
+      }
     }
 
     p = p->next;
@@ -1574,7 +1978,6 @@ void paintMenu()
 
 void interfaceManager()
 {
-
   paintMenu();
 }
 
@@ -1642,30 +2045,34 @@ void input()
 
     currentFocus->focused = false;
     currentFocus = nullptr;
-    
   }
 
   if (currentFocus != nullptr)
   {
-    TextBuffer = currentFocus->text;
     char c;
-    
     c = esat::GetNextPressedKey();
-    printf("%c", c);
+    // printf("%c", c);
 
-    if (esat::IsSpecialKeyDown(esat::kSpecialKey_Backspace) && *(TextBuffer+0) != '\0')
+    if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Backspace) && *(currentFocus->text + 0) != '\0' &&
+        esat::Time() - BackspaceCooldownTime > BackspaceCooldownTimeRef)
     {
-        //printf("\n%d ,%s", strlen(TextBuffer), TextBuffer);
-        *(TextBuffer + (strlen(TextBuffer) - 1)) = '\0';
+      // printf("\n%d ,%s", strlen(TextBuffer), TextBuffer);
+      BackspaceCooldownTime = esat::Time();
+      *(currentFocus->text + (strlen(currentFocus->text) - 1)) = '\0';
     }
-    if (c != '\0' && strlen(TextBuffer) < 20)
+    if (c != '\0' && strlen(currentFocus->text) < 25 && ((c >= 64 && c <= 90) || (c >= 46 && c <= 57) || c == 32))
     {
-      (*(TextBuffer + strlen(TextBuffer))) = c; 
-    }
-    
-    
+      if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Alt) && c == 50)
+        c = '@';
 
-    currentFocus->text = TextBuffer;
+      (*(currentFocus->text + strlen(currentFocus->text))) = c;
+    }
+    if (esat::IsSpecialKeyDown(esat::kSpecialKey_Tab))
+    {
+      currentFocus->focused = false;
+      currentFocus = nullptr;
+      lookingNextButton = true;
+    }
   }
 }
 
@@ -1745,10 +2152,11 @@ void CEO()
     esat::DrawText(190, 200, "asteroids");
     esat::DrawSetTextSize(30);
     esat::DrawText(260, 240, "guillermo bosca");
+
     break;
 
   case LOGIN:
-
+    //printf("->User:%s\n->Pass: %s\n", user1->nick, user1->pass);
     break;
 
   case SIGNUP:
@@ -1781,7 +2189,6 @@ void CEO()
 
 int esat::main(int argc, char **argv)
 {
-
   srand(time(NULL)); // RANDOMNESS
 
   esat::WindowInit(800, 800);
@@ -1790,9 +2197,13 @@ int esat::main(int argc, char **argv)
   initAstData();
   initShip(&ship);
   init();
-  
-  initEmptyUser(user1);
+
+  initEmptyUser(&user1);
+  initEmptyUser(&tempUser);
   initInterfaceData();
+
+  LoadUserList();
+  PrintUserList();
 
   while (esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape))
   {
