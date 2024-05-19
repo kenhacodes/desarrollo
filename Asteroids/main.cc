@@ -71,6 +71,7 @@ struct TUser
   char *country;  // 40
   char *birthday;
   int credits;
+  int highscore; // Implement!!
   bool isAdmin;
 };
 
@@ -277,10 +278,8 @@ void insertUser(TUser *newUser, bool isSignUp)
 
     TUserList *newUserInList = (TUserList *)malloc(sizeof(TUserList));
 
-    // Initialize newUserInList
     initEmptyUser(&newUserInList->user);
 
-    // Correctly assign user properties
     newUserInList->user->id = UserListLength() + 1;
 
     if (isSignUp)
@@ -292,7 +291,6 @@ void insertUser(TUser *newUser, bool isSignUp)
         newUserInList->user->credits = newUser->credits;
     }
 
-    // Assuming these are pointers to strings and need to be copied
     newUserInList->user->email = strdup(newUser->email);
     newUserInList->user->isAdmin = newUser->isAdmin;
     newUserInList->user->lastname = strdup(newUser->lastname);
@@ -303,7 +301,6 @@ void insertUser(TUser *newUser, bool isSignUp)
     newUserInList->user->country = strdup(newUser->country);
     newUserInList->user->birthday = strdup(newUser->birthday);
 
-    // Setting the links in the doubly linked list
     newUserInList->next = ulist;
     newUserInList->prev = nullptr;
 
@@ -312,10 +309,22 @@ void insertUser(TUser *newUser, bool isSignUp)
         ulist->prev = newUserInList;
     }
 
-    // Update the global UserList to point to the new head
     UserList = newUserInList;
 
     printf("USER ADDED TO LIST\n");
+}
+
+void freeUser(TUser *user)
+{
+    if (user->email) free(user->email);
+    if (user->lastname) free(user->lastname);
+    if (user->name) free(user->name);
+    if (user->nick) free(user->nick);
+    if (user->pass) free(user->pass);
+    if (user->prov) free(user->prov);
+    if (user->country) free(user->country);
+    if (user->birthday) free(user->birthday);
+    free(user);
 }
 
 bool deleteUser(int uid){
@@ -335,7 +344,7 @@ bool deleteUser(int uid){
       {
         ulist->next->prev = ulist->prev;
       }
-      free(ulist->user);
+      freeUser(ulist->user);
       free(ulist);
       isDeleted = true;
     }
@@ -343,6 +352,8 @@ bool deleteUser(int uid){
   }
   return isDeleted;
 }
+
+
 
 void SaveDataUser()
 {
@@ -454,6 +465,37 @@ bool CheckLogin(TUser *user)
 
    
   return match;
+}
+
+bool checkIfUserDataIsFull(TUser *user){
+
+  if (*(user->country + 0) == '\0')
+    return false;
+  
+  if (*(user->email + 0) == '\0')
+    return false;
+  
+  if (*(user->lastname + 0) == '\0')
+    return false;
+
+  if (*(user->name + 0) == '\0')
+    return false;
+
+  if (*(user->nick + 0) == '\0')
+    return false;
+
+  if (*(user->pass + 0) == '\0')
+    return false;
+
+  if (*(user->prov + 0) == '\0')
+    return false;
+
+  if (*(user->birthday + 0) == '\0')
+    return false;
+  
+ 
+  
+  return true;
 }
 
 // ----------------------------------- Inits -----------------------------------
@@ -1624,11 +1666,14 @@ void callButtonFunction(int id)
     break;
   case 7:
     // SignUp
-    PrintUser(tempUser);
-    insertUser(tempUser, true);
-    PrintUser(UserList->user);
-    SaveDataUser();
-    PrintUserList();
+    if (checkIfUserDataIsFull(tempUser))
+    {
+      insertUser(tempUser, true);
+      SaveDataUser();
+      GAMESTATE = MENU;
+    }else{
+       printf("Fill all the data\n");
+    }
     break;
 
   default:
