@@ -45,12 +45,10 @@ esat::Mat4 BasicTransform(int i, int j)
   }
   
  
-  
 
   m = esat::Mat4Multiply(esat::Mat4RotateY(esat::Time() * 0.001f), m);
+  
   m = esat::Mat4Multiply(esat::Mat4Translate(0.0f, 0.0f, 2.5f), m);
-
-
   m = esat::Mat4Multiply(esat::Mat4Projection(), m);
   m = esat::Mat4Multiply(esat::Mat4Scale(120.0f, 120.0f, 1.0f), m);
   m = esat::Mat4Multiply(esat::Mat4Translate(400.0f, 400.0f, 0.0f), m);

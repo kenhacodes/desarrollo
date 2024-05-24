@@ -68,5 +68,6 @@
     "system_error": "cpp",
     "xlocnum": "cpp",
     "xtr1common": "cpp"
-  }
+  },
+  "C_Cpp.errorSquiggles": "disabled"
 }

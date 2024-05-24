@@ -109,6 +109,17 @@ struct TUserList
   TUserList *prev;
 };
 
+struct TPopup
+{
+  bool Activate;
+  bool isActive;
+  bool isEntering;
+  bool isOutering;
+  char *text;
+  float activeTime;
+  float maxActiveTime;
+};
+
 enum WindowState GAMESTATE = MENU;
 bool isLogged = false;
 int level = 1;
@@ -132,6 +143,7 @@ zoro::Vec2 *sqPoints; // Square points
 
 char *TextBuffer = nullptr;
 
+TPopup popup;
 TButton *currentFocus = nullptr;
 
 TButton *username = nullptr;
@@ -207,7 +219,8 @@ void cleanChar(char *c)
     *(c + i) = '\0';
 }
 
-void EmptyUserData(TUser *user){
+void EmptyUserData(TUser *user)
+{
   cleanChar(user->nick);
   cleanChar(user->email);
   cleanChar(user->country);
@@ -218,16 +231,16 @@ void EmptyUserData(TUser *user){
   cleanChar(user->prov);
   user->id = 0;
   user->isAdmin = false;
-
 }
 
-void PrintUser(TUser *user){
+void PrintUser(TUser *user)
+{
   printf("\nID: %d\nNick: %s\nPass: %s\nEmail: %s\nName: %s\nLastName: %s\nProv: %s\nCountry: %s\nCredits: %d\n ",
-  user->id,user->nick,user->pass, user->email,user->name, user->lastname, user->prov, user->country, user->credits);
-
+         user->id, user->nick, user->pass, user->email, user->name, user->lastname, user->prov, user->country, user->credits);
 }
 
-void PrintUserList(){
+void PrintUserList()
+{
   TUserList *p = UserList;
   printf("----------------------------\n");
   while (p != nullptr)
@@ -274,60 +287,69 @@ int UserListLength()
 
 void insertUser(TUser *newUser, bool isSignUp)
 {
-    TUserList *ulist = UserList;
+  TUserList *ulist = UserList;
 
-    TUserList *newUserInList = (TUserList *)malloc(sizeof(TUserList));
+  TUserList *newUserInList = (TUserList *)malloc(sizeof(TUserList));
 
-    initEmptyUser(&newUserInList->user);
+  initEmptyUser(&newUserInList->user);
 
-    newUserInList->user->id = UserListLength() + 1;
+  newUserInList->user->id = UserListLength() + 1;
 
-    if (isSignUp)
-    {
-        newUserInList->user->credits = newUserCredit;
-    }
-    else
-    {
-        newUserInList->user->credits = newUser->credits;
-    }
+  if (isSignUp)
+  {
+    newUserInList->user->credits = newUserCredit;
+  }
+  else
+  {
+    newUserInList->user->credits = newUser->credits;
+  }
 
-    newUserInList->user->email = strdup(newUser->email);
-    newUserInList->user->isAdmin = newUser->isAdmin;
-    newUserInList->user->lastname = strdup(newUser->lastname);
-    newUserInList->user->name = strdup(newUser->name);
-    newUserInList->user->nick = strdup(newUser->nick);
-    newUserInList->user->pass = strdup(newUser->pass);
-    newUserInList->user->prov = strdup(newUser->prov);
-    newUserInList->user->country = strdup(newUser->country);
-    newUserInList->user->birthday = strdup(newUser->birthday);
+  newUserInList->user->email = strdup(newUser->email);
+  newUserInList->user->isAdmin = newUser->isAdmin;
+  newUserInList->user->lastname = strdup(newUser->lastname);
+  newUserInList->user->name = strdup(newUser->name);
+  newUserInList->user->nick = strdup(newUser->nick);
+  newUserInList->user->pass = strdup(newUser->pass);
+  newUserInList->user->prov = strdup(newUser->prov);
+  newUserInList->user->country = strdup(newUser->country);
+  newUserInList->user->birthday = strdup(newUser->birthday);
 
-    newUserInList->next = ulist;
-    newUserInList->prev = nullptr;
+  newUserInList->next = ulist;
+  newUserInList->prev = nullptr;
 
-    if (ulist != nullptr)
-    {
-        ulist->prev = newUserInList;
-    }
+  if (ulist != nullptr)
+  {
+    ulist->prev = newUserInList;
+  }
 
-    UserList = newUserInList;
+  UserList = newUserInList;
 
-    printf("USER ADDED TO LIST\n");
+  printf("USER ADDED TO LIST\n");
 }
 
 void freeUser(TUser *user)
 {
-    if (user->email) free(user->email);
-    if (user->lastname) free(user->lastname);
-    if (user->name) free(user->name);
-    if (user->nick) free(user->nick);
-    if (user->pass) free(user->pass);
-    if (user->prov) free(user->prov);
-    if (user->country) free(user->country);
-    if (user->birthday) free(user->birthday);
-    free(user);
+  if (user->email)
+    free(user->email);
+  if (user->lastname)
+    free(user->lastname);
+  if (user->name)
+    free(user->name);
+  if (user->nick)
+    free(user->nick);
+  if (user->pass)
+    free(user->pass);
+  if (user->prov)
+    free(user->prov);
+  if (user->country)
+    free(user->country);
+  if (user->birthday)
+    free(user->birthday);
+  free(user);
 }
 
-bool deleteUser(int uid){
+bool deleteUser(int uid)
+{
 
   TUserList *ulist = UserList;
   bool isDeleted = false;
@@ -352,8 +374,6 @@ bool deleteUser(int uid){
   }
   return isDeleted;
 }
-
-
 
 void SaveDataUser()
 {
@@ -446,35 +466,32 @@ void LoadDataUser()
 
 bool CheckLogin(TUser *user)
 {
-    TUserList *ulist = UserList;
-    bool match = false; 
+  TUserList *ulist = UserList;
+  bool match = false;
 
-    while (ulist != nullptr && !match)
+  while (ulist != nullptr && !match)
+  {
+    if (strcmp(ulist->user->nick, user1->nick) == 0 && strcmp(ulist->user->pass, user1->pass) == 0)
     {
-      if (strcmp(ulist->user->nick, user1->nick) == 0 && strcmp(ulist->user->pass, user1->pass) == 0)
-      {
       printf("\n Correct Login \n");
       match = true;
-      }
-
-      ulist = ulist->next;
     }
-    
 
-    
+    ulist = ulist->next;
+  }
 
-   
   return match;
 }
 
-bool checkIfUserDataIsFull(TUser *user){
+bool checkIfUserDataIsFull(TUser *user)
+{
 
   if (*(user->country + 0) == '\0')
     return false;
-  
+
   if (*(user->email + 0) == '\0')
     return false;
-  
+
   if (*(user->lastname + 0) == '\0')
     return false;
 
@@ -492,9 +509,7 @@ bool checkIfUserDataIsFull(TUser *user){
 
   if (*(user->birthday + 0) == '\0')
     return false;
-  
- 
-  
+
   return true;
 }
 
@@ -542,6 +557,8 @@ void init()
 
   // Pointers
   TextBuffer = (char *)malloc(30 * sizeof(char));
+
+  popup.text = nullptr;
 
   sqPoints = (zoro::Vec2 *)malloc(4 * sizeof(zoro::Vec2));
   ufo.pos = {400.0f, 410.0f};
@@ -1622,6 +1639,16 @@ void paintGUI()
 
 // ----------------------------------- Interface -----------------------------------
 
+void resetPopup()
+{
+  popup.Activate = false;
+  popup.activeTime = 0.0f;
+  popup.isActive = false;
+  popup.isEntering = false;
+  popup.isOutering = false;
+  popup.maxActiveTime = 0.0f;
+}
+
 void callButtonFunction(int id)
 {
 
@@ -1662,7 +1689,7 @@ void callButtonFunction(int id)
   case 6:
     GAMESTATE = SIGNUP;
     EmptyUserData(tempUser);
-    
+
     break;
   case 7:
     // SignUp
@@ -1671,8 +1698,13 @@ void callButtonFunction(int id)
       insertUser(tempUser, true);
       SaveDataUser();
       GAMESTATE = MENU;
-    }else{
-       printf("Fill all the data\n");
+    }
+    else
+    {
+      printf("Fill all the data\n");
+      popup.Activate = true;
+      popup.maxActiveTime = 30000;
+      popup.text = "Fill all the data";
     }
     break;
 
@@ -1851,7 +1883,7 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "Username";
   username_Signup = addButtonToList(newButton);
- tempUser->nick = username_Signup->text;
+  tempUser->nick = username_Signup->text;
   cleanChar(user1->nick);
 
   // Sign Up Pass
@@ -1860,7 +1892,7 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "Password";
   password_Signup = addButtonToList(newButton);
-   tempUser->pass = password_Signup->text;
+  tempUser->pass = password_Signup->text;
   cleanChar(user1->pass);
 
   // Name
@@ -2009,7 +2041,7 @@ void paintMenu()
 
       if (p->hasLabel)
       {
-         esat::DrawSetFillColor(255, 255, 255, 255);
+        esat::DrawSetFillColor(255, 255, 255, 255);
         esat::DrawSetTextSize(p->fontSize / 2);
         finalTextPos.y = p->pos.y - (p->dimensions.y / 2) - 4;
         finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
@@ -2021,8 +2053,77 @@ void paintMenu()
   }
 }
 
+void paintPopup()
+{
+  if (popup.Activate && !popup.isActive)
+  {
+    popup.Activate = false;
+    popup.activeTime = esat::Time();
+    popup.isEntering = true;
+    popup.isActive = true;
+    popup.isOutering = false;
+    printf("popup activate\n");
+  }
+
+  if (!popup.isActive)
+    return;
+
+  float widthText = strlen(popup.text) * ((15 / 2) + 4);
+
+  if (popup.isEntering)
+  {
+
+    if (popup.activeTime > 10000)
+    {
+      popup.activeTime = esat::Time();
+      popup.isEntering = false;
+      printf("popup entering finish\n");
+    }
+    else
+    {
+      *(sqPoints + 0) = {800 + (-widthText - 10) * (((float)esat::Time() - popup.activeTime) * 0.01f), 50};
+      *(sqPoints + 1) = {800 + (-widthText - 10) * (((float)esat::Time() - popup.activeTime) * 0.01f), 100};
+      *(sqPoints + 2) = {(800 + widthText + 10) + (800 - (800 + widthText + 10)) * (((float)esat::Time() - popup.activeTime) * 0.01f), 100};
+      *(sqPoints + 3) = {(800 + widthText + 10) + (800 - (800 + widthText + 10)) * (((float)esat::Time() - popup.activeTime) * 0.01f), 50};
+    }
+  }
+  else if (popup.isOutering)
+  {
+    // Outer code anim
+    popup.isOutering = false;
+    popup.isActive = false;
+    printf("popup outering\n");
+  }
+  else
+  {
+    if (popup.isActive)
+    {
+
+      if (popup.activeTime > popup.maxActiveTime)
+      {
+        popup.isActive = false;
+        popup.activeTime = esat::Time();
+        popup.isOutering = true;
+        printf("popup normal finish\n");
+      }
+      else
+      {
+        *(sqPoints + 0) = {-widthText - 10, 50};
+        *(sqPoints + 1) = {-widthText - 10, 100};
+        *(sqPoints + 2) = {800, 100};
+        *(sqPoints + 3) = {800, 50};
+      }
+    }
+  }
+
+  esat::DrawSetStrokeColor(255, 255, 255, 255);
+  esat::DrawSetFillColor(255, 255, 255, 20);
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+}
+
 void interfaceManager()
 {
+  paintPopup();
   paintMenu();
 }
 
@@ -2201,7 +2302,7 @@ void CEO()
     break;
 
   case LOGIN:
-    //printf("->User:%s\n->Pass: %s\n", user1->nick, user1->pass);
+    // printf("->User:%s\n->Pass: %s\n", user1->nick, user1->pass);
     break;
 
   case SIGNUP:

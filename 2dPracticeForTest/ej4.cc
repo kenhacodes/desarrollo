@@ -91,7 +91,7 @@ int esat::main(int argc, char **argv)
       c = esat::Mat3Multiply(m, c);
 
       esat::Mat3 atom = esat::Mat3Identity();
-      atom = esat::Mat3Multiply(esat::Mat3Scale(0.08,0.2), atom);
+      atom = esat::Mat3Multiply(esat::Mat3Scale(0.06,0.25), atom);
       atom = esat::Mat3Multiply(esat::Mat3Translate(cosf(esat::Time() * 0.001f), sinf(esat::Time() * 0.001f)), atom);
        
       atom = esat::Mat3Multiply(c, atom);

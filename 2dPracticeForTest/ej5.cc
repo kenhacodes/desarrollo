@@ -19,6 +19,7 @@ const int knPointsHex = 6;
 esat::Vec3 g_points[knPoints];
 esat::Vec3 g_pointsCircle[knPointsCircle];  
 esat::Vec3 g_pointsHex[knPointsHex];
+
 void InitFigures()
 {
   float points[20] = {
@@ -86,7 +87,6 @@ int esat::main(int argc, char **argv)
   InitFigures();
   
 
-   
   while (esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape))
   {
     

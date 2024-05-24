@@ -392,7 +392,6 @@ Mat3 Mat3Multiply(Mat3 m1, Mat3 m2){
               });
 };
 
-
 Mat3 Mat3Scale(float scale_x, float scale_y){
 return (Mat3 {scale_x, 0.0f, 0.0f,
               0.0f, scale_y, 0.0f,
