@@ -19,7 +19,8 @@ enum WindowState
   SIGNUP,
   INGAME,
   ADMIN,
-  PAUSE
+  PAUSE,
+  GAMEOVER
 };
 
 struct TUfo
@@ -71,7 +72,7 @@ struct TUser
   char *country;  // 40
   char *birthday;
   int credits;
-  int highscore; // Implement!!
+  int highscore;
   bool isAdmin;
 };
 
@@ -229,6 +230,7 @@ void EmptyUserData(TUser *user)
   cleanChar(user->name);
   cleanChar(user->pass);
   cleanChar(user->prov);
+  user->highscore = 0;
   user->id = 0;
   user->isAdmin = false;
 }
@@ -266,6 +268,7 @@ void initEmptyUser(TUser **user)
   (*(user))->credits = 0;
   (*(user))->id = 0;
   (*(user))->isAdmin = false;
+  (*(user))->highscore = 0;
 
   printf("\nEmpty user init.\n");
 }
@@ -303,7 +306,7 @@ void insertUser(TUser *newUser, bool isSignUp)
   {
     newUserInList->user->credits = newUser->credits;
   }
-
+  newUserInList->user->highscore = newUser->highscore;
   newUserInList->user->email = strdup(newUser->email);
   newUserInList->user->isAdmin = newUser->isAdmin;
   newUserInList->user->lastname = strdup(newUser->lastname);
@@ -403,6 +406,7 @@ void SaveDataUser()
     fwrite(tempUser->country, sizeof(char), 40, f);
     fwrite(tempUser->birthday, sizeof(char), 40, f);
     fwrite(&tempUser->credits, sizeof(int), 1, f);
+    fwrite(&tempUser->highscore, sizeof(int), 1, f);
     fwrite(&tempUser->isAdmin, sizeof(bool), 1, f);
 
     p = p->next;
@@ -431,6 +435,7 @@ void LoadUserList()
       fread(tempUser->country, sizeof(char), 40, f);
       fread(tempUser->birthday, sizeof(char), 40, f);
       fread(&tempUser->credits, sizeof(int), 1, f);
+      fread(&tempUser->highscore, sizeof(int), 1, f);
       fread(&tempUser->isAdmin, sizeof(bool), 1, f);
 
       insertUser(tempUser, false);
@@ -509,6 +514,23 @@ bool checkIfUserDataIsFull(TUser *user)
 
   if (*(user->birthday + 0) == '\0')
     return false;
+
+  return true;
+}
+
+bool checkUsernameValid(TUser *user)
+{
+  TUserList *ulist = UserList;
+
+  while (ulist != nullptr)
+  {
+    if (strcmp(ulist->user->nick, user->nick) == 0)
+    {
+      return false;
+    }
+
+    ulist = ulist->next;
+  }
 
   return true;
 }
@@ -740,7 +762,7 @@ void shipDeath()
   printf("\nLives: %d", ship.lives);
   if (ship.lives <= 0)
   {
-    GAMESTATE = MENU;
+    GAMESTATE = GAMEOVER;
   }
   else
   {
@@ -1660,7 +1682,6 @@ void callButtonFunction(int id)
     {
       GAMESTATE = MENU;
     }
-
     break;
   case 1:
     GAMESTATE = SCOREBOARD;
@@ -1693,19 +1714,24 @@ void callButtonFunction(int id)
     break;
   case 7:
     // SignUp
-    if (checkIfUserDataIsFull(tempUser))
+    if (!checkIfUserDataIsFull(tempUser))
     {
-      insertUser(tempUser, true);
-      SaveDataUser();
-      GAMESTATE = MENU;
-    }
-    else
-    {
-      printf("Fill all the data\n");
       popup.Activate = true;
-      popup.maxActiveTime = 30000;
+      popup.maxActiveTime = 3000;
       popup.text = "Fill all the data";
+      return;
     }
+    if (!checkUsernameValid(tempUser))
+    {
+      popup.Activate = true;
+      popup.maxActiveTime = 3000;
+      popup.text = "Username already exists";
+      return;
+    }
+
+    insertUser(tempUser, true);
+    SaveDataUser();
+    GAMESTATE = MENU;
     break;
 
   default:
@@ -1779,7 +1805,7 @@ void initInterfaceData()
 
   addButtonToList(newButton);
 
-  newButton.text = "go back";
+  newButton.text = "MENUs";
   newButton.idFunction = 3;
   newButton.pos = {400, 640};
   newButton.windowContext = SCOREBOARD;
@@ -1847,6 +1873,22 @@ void initInterfaceData()
   newButton.idFunction = 6;
   newButton.pos = {400, 560};
   newButton.windowContext = LOGIN;
+  newButton.dimensions = {400, 40};
+
+  addButtonToList(newButton);
+
+  newButton.text = "SCOREBOARD";
+  newButton.idFunction = 1;
+  newButton.pos = {400, 720};
+  newButton.windowContext = GAMEOVER;
+  newButton.dimensions = {400, 40};
+
+  addButtonToList(newButton);
+
+  newButton.text = "MENU";
+  newButton.idFunction = 3;
+  newButton.pos = {400, 760};
+  newButton.windowContext = GAMEOVER;
   newButton.dimensions = {400, 40};
 
   addButtonToList(newButton);
@@ -2002,6 +2044,7 @@ void paintMenu()
             MenuCooldownTime = esat::Time();
           }
         }
+
         esat::DrawSetFillColor(255, 255, 255, 255);
         esat::DrawSetStrokeColor(255, 255, 255, 255);
         esat::DrawSolidPath(&sqPoints[0].x, 4);
@@ -2062,69 +2105,87 @@ void paintPopup()
     popup.isEntering = true;
     popup.isActive = true;
     popup.isOutering = false;
-    printf("popup activate\n");
   }
 
   if (!popup.isActive)
     return;
 
-  float widthText = strlen(popup.text) * ((15 / 2) + 4);
+  float widthText = strlen(popup.text) * ((25 / 2) + 4);
+  float xpos;
+  float start;
+  float end;
+  float t;
 
   if (popup.isEntering)
   {
-
-    if (popup.activeTime > 10000)
+    if (esat::Time() - popup.activeTime > 250)
     {
       popup.activeTime = esat::Time();
       popup.isEntering = false;
-      printf("popup entering finish\n");
     }
-    else
-    {
-      *(sqPoints + 0) = {800 + (-widthText - 10) * (((float)esat::Time() - popup.activeTime) * 0.01f), 50};
-      *(sqPoints + 1) = {800 + (-widthText - 10) * (((float)esat::Time() - popup.activeTime) * 0.01f), 100};
-      *(sqPoints + 2) = {(800 + widthText + 10) + (800 - (800 + widthText + 10)) * (((float)esat::Time() - popup.activeTime) * 0.01f), 100};
-      *(sqPoints + 3) = {(800 + widthText + 10) + (800 - (800 + widthText + 10)) * (((float)esat::Time() - popup.activeTime) * 0.01f), 50};
-    }
+
+    // start + (end - start) * t
+    start = 801;
+    end = 801 - widthText - 10;
+    t = (((float)esat::Time() - popup.activeTime) * 0.004f);
+
+    xpos = start + (end - start) * t;
+
+    *(sqPoints + 0) = {xpos, 50};
+    *(sqPoints + 1) = {xpos, 100};
+    *(sqPoints + 2) = {xpos + widthText + 10, 100};
+    *(sqPoints + 3) = {xpos + widthText + 10, 50};
   }
   else if (popup.isOutering)
   {
-    // Outer code anim
-    popup.isOutering = false;
-    popup.isActive = false;
-    printf("popup outering\n");
+    if (esat::Time() - popup.activeTime > 250)
+    {
+      popup.isOutering = false;
+      popup.isActive = false;
+    }
+
+    // start + (end - start) * t
+    start = 801 - widthText - 10;
+    end = 801;
+    t = (((float)esat::Time() - popup.activeTime) * 0.004f);
+
+    xpos = start + (end - start) * t;
+
+    *(sqPoints + 0) = {xpos, 50};
+    *(sqPoints + 1) = {xpos, 100};
+    *(sqPoints + 2) = {xpos + widthText + 10, 100};
+    *(sqPoints + 3) = {xpos + widthText + 10, 50};
   }
   else
   {
-    if (popup.isActive)
-    {
 
-      if (popup.activeTime > popup.maxActiveTime)
-      {
-        popup.isActive = false;
-        popup.activeTime = esat::Time();
-        popup.isOutering = true;
-        printf("popup normal finish\n");
-      }
-      else
-      {
-        *(sqPoints + 0) = {-widthText - 10, 50};
-        *(sqPoints + 1) = {-widthText - 10, 100};
-        *(sqPoints + 2) = {800, 100};
-        *(sqPoints + 3) = {800, 50};
-      }
+    if (esat::Time() - popup.activeTime > popup.maxActiveTime)
+    {
+      popup.activeTime = esat::Time();
+      popup.isOutering = true;
     }
+
+    xpos = 801 - widthText;
+
+    *(sqPoints + 0) = {xpos, 50};
+    *(sqPoints + 1) = {xpos, 100};
+    *(sqPoints + 2) = {800, 100};
+    *(sqPoints + 3) = {800, 50};
   }
 
   esat::DrawSetStrokeColor(255, 255, 255, 255);
-  esat::DrawSetFillColor(255, 255, 255, 20);
+  esat::DrawSetFillColor(255, 255, 255, 250);
   esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+  esat::DrawSetTextSize(25);
+  esat::DrawSetFillColor(0, 0, 0, 255);
+  esat::DrawText(xpos + 10, 85, popup.text);
 }
 
 void interfaceManager()
 {
-  paintPopup();
   paintMenu();
+  paintPopup();
 }
 
 // ----------------------------------- Input -----------------------------------
@@ -2326,6 +2387,13 @@ void CEO()
     esat::DrawSetTextSize(45);
     esat::DrawText(280, 240, "developer");
     esat::DrawText(205, 350, "guillermo bosca");
+    break;
+  case GAMEOVER:
+    esat::DrawSetFillColor(255, 255, 255, 255);
+    esat::DrawSetTextSize(45);
+    esat::DrawText(280, 240, "GAME OVER");
+    esat::DrawText(205, 350, "SCORE");
+
     break;
   default:
     break;
