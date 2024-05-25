@@ -256,8 +256,8 @@ void EmptyUserData(TUser *user)
 
 void PrintUser(TUser *user)
 {
-  printf("\nID: %d\nNick: %s\nPass: %s\nEmail: %s\nName: %s\nLastName: %s\nProv: %s\nCountry: %s\nCredits: %d\n ",
-         user->id, user->nick, user->pass, user->email, user->name, user->lastname, user->prov, user->country, user->credits);
+  printf("\nMemory address: %d\nID: %d\nNick: %s\nPass: %s\nEmail: %s\nName: %s\nLastName: %s\nProv: %s\nCountry: %s\nCredits: %d\nHS: %d\n ",
+         (int)user, user->id, user->nick, user->pass, user->email, user->name, user->lastname, user->prov, user->country, user->credits, user->highscore);
 }
 
 void PrintUserList()
@@ -272,24 +272,22 @@ void PrintUserList()
   printf("----------------------------\n");
 }
 
-void initEmptyUser(TUser **user)
+void initEmptyUser(TUser **newuser)
 {
-  *user = (TUser *)malloc(sizeof(TUser));
-  (*(user))->birthday = (char *)malloc(40 * sizeof(char));
-  (*(user))->highscoreDate = (char *)malloc(40 * sizeof(char));
-  (*(user))->country = (char *)malloc(40 * sizeof(char));
-  (*(user))->email = (char *)malloc(40 * sizeof(char));
-  (*(user))->lastname = (char *)malloc(40 * sizeof(char));
-  (*(user))->name = (char *)malloc(40 * sizeof(char));
-  (*(user))->nick = (char *)malloc(40 * sizeof(char));
-  (*(user))->pass = (char *)malloc(40 * sizeof(char));
-  (*(user))->prov = (char *)malloc(40 * sizeof(char));
-  (*(user))->credits = 0;
-  (*(user))->id = 0;
-  (*(user))->isAdmin = false;
-  (*(user))->highscore = 0;
-
-  printf("\nEmpty user init.\n");
+  *newuser = (TUser *)malloc(sizeof(TUser));
+  (*(newuser))->birthday = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->highscoreDate = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->country = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->email = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->lastname = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->name = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->nick = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->pass = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->prov = (char *)malloc(40 * sizeof(char));
+  (*(newuser))->credits = 0;
+  (*(newuser))->id = 0;
+  (*(newuser))->isAdmin = false;
+  (*(newuser))->highscore = 0;
 }
 
 int UserListLength()
@@ -325,11 +323,14 @@ void insertUser(TUser *newUser, bool isSignUp)
   {
     newUserInList->user->credits = newUser->credits;
   }
+
   newUserInList->user->highscore = newUser->highscore;
-  newUserInList->user->email = strdup(newUser->email);
   newUserInList->user->isAdmin = newUser->isAdmin;
+
+  newUserInList->user->email = strdup(newUser->email);
   newUserInList->user->lastname = strdup(newUser->lastname);
   newUserInList->user->name = strdup(newUser->name);
+
   newUserInList->user->nick = strdup(newUser->nick);
   newUserInList->user->pass = strdup(newUser->pass);
   newUserInList->user->prov = strdup(newUser->prov);
@@ -346,8 +347,8 @@ void insertUser(TUser *newUser, bool isSignUp)
   }
 
   UserList = newUserInList;
-
-  printf("USER ADDED TO LIST\n");
+  printf("newuser: %d\ntempuser: %d", (int)newUserInList->user, (int)newUser);
+  printf("\nUSER ADDED TO LIST\n");
 }
 
 void freeUser(TUser *user)
@@ -432,7 +433,6 @@ void SaveDataUser()
     fwrite(&tempUser->highscore, sizeof(int), 1, f);
     fwrite(&tempUser->isAdmin, sizeof(bool), 1, f);
     p = p->next;
-
   }
 
   fclose(f);
@@ -473,35 +473,16 @@ void LoadUserList()
   }
 }
 
-void LoadDataUser()
-{
-
-  if (fopen("./resources/users.zoro", "r+b") != NULL)
-  {
-    f = fopen("./resources/users.zoro", "r+b");
-
-    fread(user1->nick, sizeof(char), 40, f);
-    fread(user1->pass, sizeof(char), 40, f);
-
-    printf("--->User:%s\n->Pass: %s\n", user1->nick, user1->pass);
-
-    fclose(f);
-  }
-  else
-  {
-    printf("SAVE DATA DOES NOT EXIST.\n");
-  }
-}
-
-bool CheckLogin(TUser *user)
+bool CheckLogin(TUser *usercheck)
 {
   TUserList *ulist = UserList;
   bool match = false;
 
   while (ulist != nullptr && !match)
   {
-    if (strcmp(ulist->user->nick, user1->nick) == 0 && strcmp(ulist->user->pass, user1->pass) == 0)
+    if (strcmp(ulist->user->nick, usercheck->nick) == 0 && strcmp(ulist->user->pass, usercheck->pass) == 0)
     {
+      user1 = ulist->user;
       printf("\n Correct Login \n");
       match = true;
     }
@@ -512,44 +493,47 @@ bool CheckLogin(TUser *user)
   return match;
 }
 
-bool checkIfUserDataIsFull(TUser *user)
+bool checkIfUserDataIsFull(TUser *userdata)
 {
 
-  if (*(user->country + 0) == '\0')
+  if (*(userdata->country + 0) == '\0')
     return false;
 
-  if (*(user->email + 0) == '\0')
+  if (*(userdata->email + 0) == '\0')
     return false;
 
-  if (*(user->lastname + 0) == '\0')
+  if (*(userdata->lastname + 0) == '\0')
     return false;
 
-  if (*(user->name + 0) == '\0')
+  if (*(userdata->name + 0) == '\0')
     return false;
 
-  if (*(user->nick + 0) == '\0')
+  if (*(userdata->nick + 0) == '\0')
     return false;
 
-  if (*(user->pass + 0) == '\0')
+  if (*(userdata->pass + 0) == '\0')
     return false;
 
-  if (*(user->prov + 0) == '\0')
+  if (*(userdata->prov + 0) == '\0')
     return false;
 
-  if (*(user->birthday + 0) == '\0')
+  if (*(userdata->birthday + 0) == '\0')
     return false;
 
   return true;
 }
 
-bool checkUsernameValid(TUser *user)
+bool checkUsernameValid(TUser *usercheck)
 {
   TUserList *ulist = UserList;
 
+  PrintUserList();
+  printf("\n new user name: %s", usercheck->nick);
   while (ulist != nullptr)
   {
-    if (strcmp(ulist->user->nick, user->nick) == 0)
+    if (strcmp(ulist->user->nick, usercheck->nick) == 0)
     {
+      printf("\n%s = %s\n", ulist->user->nick, usercheck->nick);
       return false;
     }
 
@@ -557,6 +541,30 @@ bool checkUsernameValid(TUser *user)
   }
 
   return true;
+}
+
+void updateUser(){
+  TUserList* p = UserList;
+
+  while (p != nullptr )
+  {
+    if (p->user->id == user1->id)
+    {
+      p->user->name = strdup(user1->name);
+      p->user->country = strdup(user1->country);
+      p->user->email = strdup(user1->email);
+      p->user->highscoreDate = strdup(user1->highscoreDate);
+      p->user->lastname = strdup(user1->lastname);
+      p->user->nick = strdup(user1->nick);
+      p->user->pass = strdup(user1->pass);
+      p->user->prov = strdup(user1->prov);
+      p->user->credits = user1->credits;
+      p->user->highscore = user1->highscore;
+      p->user->isAdmin = user1->isAdmin;
+      return;
+    }
+    p = p->next;
+  }
 }
 
 // ----------------------------------- Scoreboard -----------------------------------
@@ -614,8 +622,8 @@ void paintScore(float y, int score, int order, char *user, char *date)
 
   *(sqPoints + 0) = {50, y};
   *(sqPoints + 1) = {740, y};
-  *(sqPoints + 2) = {740, y+50};
-  *(sqPoints + 3) = {50, y+50};
+  *(sqPoints + 2) = {740, y + 50};
+  *(sqPoints + 3) = {50, y + 50};
 
   esat::DrawSetStrokeColor(255, 255, 255, 255);
   esat::DrawSetFillColor(255, 255, 255, 15);
@@ -623,12 +631,12 @@ void paintScore(float y, int score, int order, char *user, char *date)
 
   esat::DrawSetFillColor(255, 255, 255, 255);
   esat::DrawSetTextSize(30);
-  esat::DrawText(100, y+35, user);
-  esat::DrawText(300, y+35, date);
-  itoa(order+1,TextBuffer,10);
-  esat::DrawText(60, y+35, TextBuffer);
-  itoa(score,TextBuffer,10);
-  esat::DrawText(500, y+35, TextBuffer);
+  esat::DrawText(100, y + 35, user);
+  esat::DrawText(300, y + 35, date);
+  itoa(order + 1, TextBuffer, 10);
+  esat::DrawText(60, y + 35, TextBuffer);
+  itoa(score, TextBuffer, 10);
+  esat::DrawText(500, y + 35, TextBuffer);
 }
 
 void paintScoreboard()
@@ -652,7 +660,7 @@ void paintScoreboard()
   esat::DrawSetFillColor(250, 255, 255, 20);
   esat::DrawSolidPath(&sqPoints[0].x, 4);
 
-  // Background 
+  // Background
   *(sqPoints + 0) = {0, 0};
   *(sqPoints + 1) = {800, 0};
   *(sqPoints + 2) = {800, 79};
@@ -660,7 +668,6 @@ void paintScoreboard()
   esat::DrawSetStrokeColor(0, 0, 0, 255);
   esat::DrawSetFillColor(50, 0, 0, 255);
   esat::DrawSolidPath(&sqPoints[0].x, 4);
-
 }
 
 bool isTop10HS(int score)
@@ -826,6 +833,36 @@ void initAstData()
   *(ufoDataDown.g_points + 5) = {0.77f, 0.1f, 1.0f};
 }
 
+void GoToSignUp()
+{
+  printf("\nGoing to Signup - ");
+  GAMESTATE = SIGNUP;
+  EmptyUserData(tempUser);
+
+  // Cleans inputs
+  cleanChar(username_Signup->text);
+  cleanChar(password_Signup->text);
+  cleanChar(email->text);
+  cleanChar(name->text);
+  cleanChar(lastname->text);
+  cleanChar(prov->text);
+  cleanChar(country->text);
+  cleanChar(birthday->text);
+  cleanChar(highscoreDate->text);
+  /*
+  tempUser->nick = username_Signup->text;
+  tempUser->pass = password_Signup->text;
+  tempUser->name = name->text;
+  tempUser->lastname = lastname->text;
+  tempUser->email = email->text;
+  tempUser->prov = prov->text;
+  tempUser->country = country->text;
+  tempUser->birthday = birthday->text;
+  */
+
+  printf("end\n");
+}
+
 // ----------------------------------- Ship -----------------------------------
 
 void initShip(TShip *ship)
@@ -897,10 +934,14 @@ void shipDeath()
   {
     isNewTop10 = false;
     GAMESTATE = GAMEOVER;
+    PrintUser(user1);
+    printf("ship score: %d\n",ship.score);
     if (ship.score > user1->highscore)
     {
+      printf("NEW HIGHSCORE");
       isNewTop10 = isTop10HS(ship.score);
       user1->highscore = ship.score;
+      SaveDataUser();
     }
   }
   else
@@ -1852,19 +1893,25 @@ void callButtonFunction(int id)
 
     break;
   case 6:
-    GAMESTATE = SIGNUP;
-    EmptyUserData(tempUser);
+    GoToSignUp();
 
     break;
   case 7:
     // SignUp
-    if (!checkIfUserDataIsFull(tempUser))
-    {
-      popup.Activate = true;
-      popup.maxActiveTime = 3000;
-      popup.text = "Fill all the data";
-      return;
-    }
+
+    tempUser->nick = strdup(username_Signup->text);
+    tempUser->pass = strdup(password_Signup->text);
+    tempUser->name = strdup(name->text);
+    tempUser->lastname = strdup(lastname->text);
+    tempUser->email = strdup(email->text);
+    tempUser->prov = strdup(prov->text);
+    tempUser->country = strdup(country->text);
+    tempUser->birthday = strdup(birthday->text);
+
+    printf("tempuser:\n");
+    PrintUser(tempUser);
+    printf("......................................\n");
+
     if (!checkUsernameValid(tempUser))
     {
       popup.Activate = true;
@@ -1872,9 +1919,18 @@ void callButtonFunction(int id)
       popup.text = "Username already exists";
       return;
     }
-
+    if (!checkIfUserDataIsFull(tempUser))
+    {
+      popup.Activate = true;
+      popup.maxActiveTime = 3000;
+      popup.text = "Fill all the data";
+      return;
+    }
+    printf("\nUSER INSERTED NOT ERROR OK GOOD FINE UWU!!!\n");
     insertUser(tempUser, true);
     SaveDataUser();
+    tempUser = nullptr;
+    initEmptyUser(&tempUser);
     GAMESTATE = MENU;
     break;
 
@@ -2048,7 +2104,6 @@ void initInterfaceData()
   newButton.windowContext = LOGIN;
   newButton.dimensions = {610, 40};
   newButton.label = "Username";
-
   username = addButtonToList(newButton);
   user1->nick = username->text;
   cleanChar(user1->nick);
@@ -2058,7 +2113,6 @@ void initInterfaceData()
   newButton.windowContext = LOGIN;
   newButton.dimensions = {610, 40};
   newButton.label = "Password";
-
   password = addButtonToList(newButton);
   user1->pass = password->text;
   cleanChar(user1->pass);
@@ -2069,8 +2123,6 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "Username";
   username_Signup = addButtonToList(newButton);
-  tempUser->nick = username_Signup->text;
-  cleanChar(user1->nick);
 
   // Sign Up Pass
   newButton.pos = {400, 160};
@@ -2078,8 +2130,6 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "Password";
   password_Signup = addButtonToList(newButton);
-  tempUser->pass = password_Signup->text;
-  cleanChar(user1->pass);
 
   // Name
   newButton.pos = {400, 240};
@@ -2087,8 +2137,6 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "Name";
   name = addButtonToList(newButton);
-  tempUser->name = name->text;
-  cleanChar(tempUser->name);
 
   // Lastname
   newButton.pos = {400, 320};
@@ -2096,8 +2144,6 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "LastName";
   lastname = addButtonToList(newButton);
-  tempUser->lastname = lastname->text;
-  cleanChar(tempUser->lastname);
 
   // Email
   newButton.pos = {400, 400};
@@ -2105,8 +2151,6 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "Email";
   email = addButtonToList(newButton);
-  tempUser->email = email->text;
-  cleanChar(tempUser->email);
 
   // Prov
   newButton.pos = {400, 480};
@@ -2114,8 +2158,6 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "Province";
   prov = addButtonToList(newButton);
-  tempUser->prov = prov->text;
-  cleanChar(tempUser->prov);
 
   // Country
   newButton.pos = {400, 560};
@@ -2123,8 +2165,6 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "Country";
   country = addButtonToList(newButton);
-  tempUser->country = country->text;
-  cleanChar(tempUser->country);
 
   // Birthday
   newButton.pos = {400, 640};
@@ -2132,8 +2172,6 @@ void initInterfaceData()
   newButton.dimensions = {610, 40};
   newButton.label = "birthday";
   birthday = addButtonToList(newButton);
-  tempUser->birthday = birthday->text;
-  cleanChar(tempUser->birthday);
 
   // Highscore Date
   newButton.pos = {400, 640};
@@ -2141,12 +2179,11 @@ void initInterfaceData()
   newButton.dimensions = {410, 40};
   newButton.label = "date";
   highscoreDate = addButtonToList(newButton);
-  tempUser->highscoreDate = highscoreDate->text;
-  cleanChar(tempUser->highscoreDate);
 }
 
 void paintMenu()
 {
+  // printf("\nPaint menu - ");
   zoro::Vec2 finalTextPos;
   float mx, my;
   TButton *p = InterfaceList;
@@ -2224,29 +2261,36 @@ void paintMenu()
           esat::DrawSetFillColor(255, 255, 255, 255);
         }
       }
-
-      esat::DrawSetTextSize(p->fontSize);
-
-      finalTextPos.y = p->pos.y + (p->dimensions.y / 2); // 1 fontsize = 0.75pixels
-      finalTextPos.y -= (p->dimensions.y - p->fontSize * 0.75) / 2;
-
-      finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
-      finalTextPos.x += (p->dimensions.x - strlen(p->text) * ((p->fontSize / 2) + 4)) / 2; // widthLetter = (fontsize / 2) + 4
-
-      esat::DrawText(finalTextPos.x, finalTextPos.y, p->text);
-
-      if (p->hasLabel)
+      if (p->text != nullptr)
       {
-        esat::DrawSetFillColor(255, 255, 255, 255);
-        esat::DrawSetTextSize(p->fontSize / 2);
-        finalTextPos.y = p->pos.y - (p->dimensions.y / 2) - 4;
+        esat::DrawSetTextSize(p->fontSize);
+
+        finalTextPos.y = p->pos.y + (p->dimensions.y / 2); // 1 fontsize = 0.75pixels
+        finalTextPos.y -= (p->dimensions.y - p->fontSize * 0.75) / 2;
+
         finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
-        esat::DrawText(finalTextPos.x, finalTextPos.y, p->label);
+        finalTextPos.x += (p->dimensions.x - strlen(p->text) * ((p->fontSize / 2) + 4)) / 2; // widthLetter = (fontsize / 2) + 4
+
+        esat::DrawText(finalTextPos.x, finalTextPos.y, p->text);
+
+        if (p->hasLabel)
+        {
+          esat::DrawSetFillColor(255, 255, 255, 255);
+          esat::DrawSetTextSize(p->fontSize / 2);
+          finalTextPos.y = p->pos.y - (p->dimensions.y / 2) - 4;
+          finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
+          esat::DrawText(finalTextPos.x, finalTextPos.y, p->label);
+        }
+      }
+      else
+      {
+        printf("Button has no text memory");
       }
     }
 
     p = p->next;
   }
+  // printf("end...");
 }
 
 void paintPopup()
@@ -2520,7 +2564,7 @@ void CEO()
     break;
 
   case SIGNUP:
-
+    // printf("tempuser: %s\ninput: %s\n", tempUser->nick, username_Signup->text);
     break;
 
   case INGAME:
@@ -2553,7 +2597,7 @@ void CEO()
       esat::DrawText(150, 150, "NEW TOP 10 HIGHSCORE");
     }
     break;
-    case SCOREBOARD:
+  case SCOREBOARD:
     paintScoreboard();
     break;
   default:
