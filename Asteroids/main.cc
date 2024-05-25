@@ -63,14 +63,15 @@ struct TShip
 struct TUser
 {
   int id;
-  char *nick;     // 40
-  char *pass;     // 40
-  char *email;    // 40
-  char *name;     // 40
-  char *lastname; // 40
-  char *prov;     // 40
-  char *country;  // 40
+  char *nick;
+  char *pass;
+  char *email;
+  char *name;
+  char *lastname;
+  char *prov;
+  char *country;
   char *birthday;
+  char *highscoreDate;
   int credits;
   int highscore;
   bool isAdmin;
@@ -121,9 +122,21 @@ struct TPopup
   float maxActiveTime;
 };
 
+struct TScoreboard
+{
+  int order;
+  int score;
+  char *date;
+  char *username;
+  TScoreboard *next;
+  TScoreboard *prev;
+};
+
 enum WindowState GAMESTATE = MENU;
 bool isLogged = false;
 int level = 1;
+
+bool isNewTop10 = false;
 
 TUser *user1 = nullptr;
 TUser *tempUser = nullptr;
@@ -139,6 +152,8 @@ ast::TAsteroid *asteroidList;
 TButton *InterfaceList;
 TShot *shotlist;
 TUfo ufo;
+
+TScoreboard *scoreList = nullptr;
 
 zoro::Vec2 *sqPoints; // Square points
 
@@ -157,8 +172,11 @@ TButton *lastname = nullptr;
 TButton *prov = nullptr;
 TButton *country = nullptr;
 TButton *birthday = nullptr;
+TButton *highscoreDate = nullptr;
 
 bool lookingNextButton = false;
+
+float scrollOffset = 0.0f;
 
 //    TIME VARIABLES
 unsigned char fps = 60;
@@ -230,6 +248,7 @@ void EmptyUserData(TUser *user)
   cleanChar(user->name);
   cleanChar(user->pass);
   cleanChar(user->prov);
+  cleanChar(user->highscoreDate);
   user->highscore = 0;
   user->id = 0;
   user->isAdmin = false;
@@ -257,12 +276,12 @@ void initEmptyUser(TUser **user)
 {
   *user = (TUser *)malloc(sizeof(TUser));
   (*(user))->birthday = (char *)malloc(40 * sizeof(char));
+  (*(user))->highscoreDate = (char *)malloc(40 * sizeof(char));
   (*(user))->country = (char *)malloc(40 * sizeof(char));
   (*(user))->email = (char *)malloc(40 * sizeof(char));
   (*(user))->lastname = (char *)malloc(40 * sizeof(char));
   (*(user))->name = (char *)malloc(40 * sizeof(char));
   (*(user))->nick = (char *)malloc(40 * sizeof(char));
-
   (*(user))->pass = (char *)malloc(40 * sizeof(char));
   (*(user))->prov = (char *)malloc(40 * sizeof(char));
   (*(user))->credits = 0;
@@ -316,6 +335,7 @@ void insertUser(TUser *newUser, bool isSignUp)
   newUserInList->user->prov = strdup(newUser->prov);
   newUserInList->user->country = strdup(newUser->country);
   newUserInList->user->birthday = strdup(newUser->birthday);
+  newUserInList->user->highscoreDate = strdup(newUser->highscoreDate);
 
   newUserInList->next = ulist;
   newUserInList->prev = nullptr;
@@ -348,6 +368,8 @@ void freeUser(TUser *user)
     free(user->country);
   if (user->birthday)
     free(user->birthday);
+  if (user->highscoreDate)
+    free(user->highscoreDate);
   free(user);
 }
 
@@ -405,11 +427,12 @@ void SaveDataUser()
     fwrite(tempUser->prov, sizeof(char), 40, f);
     fwrite(tempUser->country, sizeof(char), 40, f);
     fwrite(tempUser->birthday, sizeof(char), 40, f);
+    fwrite(tempUser->highscoreDate, sizeof(char), 40, f);
     fwrite(&tempUser->credits, sizeof(int), 1, f);
     fwrite(&tempUser->highscore, sizeof(int), 1, f);
     fwrite(&tempUser->isAdmin, sizeof(bool), 1, f);
-
     p = p->next;
+
   }
 
   fclose(f);
@@ -434,6 +457,7 @@ void LoadUserList()
       fread(tempUser->prov, sizeof(char), 40, f);
       fread(tempUser->country, sizeof(char), 40, f);
       fread(tempUser->birthday, sizeof(char), 40, f);
+      fread(tempUser->highscoreDate, sizeof(char), 40, f);
       fread(&tempUser->credits, sizeof(int), 1, f);
       fread(&tempUser->highscore, sizeof(int), 1, f);
       fread(&tempUser->isAdmin, sizeof(bool), 1, f);
@@ -532,6 +556,115 @@ bool checkUsernameValid(TUser *user)
     ulist = ulist->next;
   }
 
+  return true;
+}
+
+// ----------------------------------- Scoreboard -----------------------------------
+
+void freeScoreboard()
+{
+  while (scoreList != nullptr)
+  {
+    TScoreboard *p = scoreList;
+    scoreList = scoreList->next;
+    free(p);
+  }
+}
+
+void insertScore(TUserList *user)
+{
+  TScoreboard *newScore = (TScoreboard *)malloc(sizeof(TScoreboard));
+
+  newScore->order = 0;
+  newScore->score = user->user->highscore;
+  newScore->username = user->user->nick;
+  newScore->date = user->user->highscoreDate;
+
+  newScore->next = scoreList;
+  newScore->prev = nullptr;
+
+  if (scoreList != nullptr)
+  {
+    scoreList->prev = newScore;
+  }
+
+  scoreList = newScore;
+}
+
+void orderScoreboard()
+{
+}
+
+void initScoreboard()
+{
+  freeScoreboard();
+
+  TUserList *p = UserList;
+
+  while (p != nullptr)
+  {
+    insertScore(p);
+    p = p->next;
+  }
+  printf("Scoreboard initialized");
+}
+
+void paintScore(float y, int score, int order, char *user, char *date)
+{
+
+  *(sqPoints + 0) = {50, y};
+  *(sqPoints + 1) = {740, y};
+  *(sqPoints + 2) = {740, y+50};
+  *(sqPoints + 3) = {50, y+50};
+
+  esat::DrawSetStrokeColor(255, 255, 255, 255);
+  esat::DrawSetFillColor(255, 255, 255, 15);
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+  esat::DrawSetFillColor(255, 255, 255, 255);
+  esat::DrawSetTextSize(30);
+  esat::DrawText(100, y+35, user);
+  esat::DrawText(300, y+35, date);
+  itoa(order+1,TextBuffer,10);
+  esat::DrawText(60, y+35, TextBuffer);
+  itoa(score,TextBuffer,10);
+  esat::DrawText(500, y+35, TextBuffer);
+}
+
+void paintScoreboard()
+{
+  TScoreboard *score = scoreList;
+  int i = 0;
+  float y;
+  while (score != nullptr)
+  {
+    y = 80 + (50 * i) + scrollOffset;
+    paintScore(y, score->score, i, score->username, score->date);
+    i++;
+    score = score->next;
+  }
+  // Scroll
+  *(sqPoints + 0) = {741, 80};
+  *(sqPoints + 1) = {760, 80};
+  *(sqPoints + 2) = {760, 580};
+  *(sqPoints + 3) = {741, 580};
+  esat::DrawSetStrokeColor(250, 250, 250, 255);
+  esat::DrawSetFillColor(250, 255, 255, 20);
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+  // Background 
+  *(sqPoints + 0) = {0, 0};
+  *(sqPoints + 1) = {800, 0};
+  *(sqPoints + 2) = {800, 79};
+  *(sqPoints + 3) = {0, 79};
+  esat::DrawSetStrokeColor(0, 0, 0, 255);
+  esat::DrawSetFillColor(50, 0, 0, 255);
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+}
+
+bool isTop10HS(int score)
+{
   return true;
 }
 
@@ -762,7 +895,13 @@ void shipDeath()
   printf("\nLives: %d", ship.lives);
   if (ship.lives <= 0)
   {
+    isNewTop10 = false;
     GAMESTATE = GAMEOVER;
+    if (ship.score > user1->highscore)
+    {
+      isNewTop10 = isTop10HS(ship.score);
+      user1->highscore = ship.score;
+    }
   }
   else
   {
@@ -1621,8 +1760,6 @@ void paintGUI()
   esat::DrawSetFillColor(230, 230, 230, 255);
   itoa(ship.score, TextBuffer, 10);
   esat::DrawText(150, 50, TextBuffer);
-  itoa(ship2.score, TextBuffer, 10);
-  esat::DrawText(650, 50, TextBuffer);
 
   for (int i = 0; i < ship.lives; i++)
   {
@@ -1682,9 +1819,16 @@ void callButtonFunction(int id)
     {
       GAMESTATE = MENU;
     }
+    else
+    {
+      popup.Activate = true;
+      popup.maxActiveTime = 2000;
+      popup.text = "Credentials are incorect:(";
+    }
     break;
   case 1:
     GAMESTATE = SCOREBOARD;
+    initScoreboard();
     break;
   case 2:
     GAMESTATE = CREDITS;
@@ -1805,7 +1949,7 @@ void initInterfaceData()
 
   addButtonToList(newButton);
 
-  newButton.text = "MENUs";
+  newButton.text = "MENU";
   newButton.idFunction = 3;
   newButton.pos = {400, 640};
   newButton.windowContext = SCOREBOARD;
@@ -1990,6 +2134,15 @@ void initInterfaceData()
   birthday = addButtonToList(newButton);
   tempUser->birthday = birthday->text;
   cleanChar(tempUser->birthday);
+
+  // Highscore Date
+  newButton.pos = {400, 640};
+  newButton.windowContext = GAMEOVER;
+  newButton.dimensions = {410, 40};
+  newButton.label = "date";
+  highscoreDate = addButtonToList(newButton);
+  tempUser->highscoreDate = highscoreDate->text;
+  cleanChar(tempUser->highscoreDate);
 }
 
 void paintMenu()
@@ -2392,8 +2545,16 @@ void CEO()
     esat::DrawSetFillColor(255, 255, 255, 255);
     esat::DrawSetTextSize(45);
     esat::DrawText(280, 240, "GAME OVER");
-    esat::DrawText(205, 350, "SCORE");
-
+    esat::DrawText(205, 350, "SCORE:");
+    itoa(ship.score, TextBuffer, 10);
+    esat::DrawText(400, 350, TextBuffer);
+    if (isNewTop10)
+    {
+      esat::DrawText(150, 150, "NEW TOP 10 HIGHSCORE");
+    }
+    break;
+    case SCOREBOARD:
+    paintScoreboard();
     break;
   default:
     break;
