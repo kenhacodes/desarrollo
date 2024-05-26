@@ -124,7 +124,7 @@ struct TPopup
 
 struct TScoreboard
 {
-  int order;
+
   int score;
   char *date;
   char *username;
@@ -543,10 +543,11 @@ bool checkUsernameValid(TUser *usercheck)
   return true;
 }
 
-void updateUser(){
-  TUserList* p = UserList;
+void updateUser()
+{
+  TUserList *p = UserList;
 
-  while (p != nullptr )
+  while (p != nullptr)
   {
     if (p->user->id == user1->id)
     {
@@ -583,7 +584,6 @@ void insertScore(TUserList *user)
 {
   TScoreboard *newScore = (TScoreboard *)malloc(sizeof(TScoreboard));
 
-  newScore->order = 0;
   newScore->score = user->user->highscore;
   newScore->username = user->user->nick;
   newScore->date = user->user->highscoreDate;
@@ -601,6 +601,40 @@ void insertScore(TUserList *user)
 
 void orderScoreboard()
 {
+  bool found;
+  TScoreboard *p;
+  int listLength = UserListLength();
+
+  for (int i = 0; i < listLength - 1; i++)
+  {
+    found = false;
+    p = scoreList;
+
+    for (int j = 0; j < listLength - 1 - i; j++)
+    {
+      if (p->next != nullptr && p->score < p->next->score)
+      {
+
+        int tempScore = p->score;
+        char *tempDate = p->date;
+        char *tempUsername = p->username;
+
+        p->score = p->next->score;
+        p->date = p->next->date;
+        p->username = p->next->username;
+
+        p->next->score = tempScore;
+        p->next->date = tempDate;
+        p->next->username = tempUsername;
+
+        found = true;
+      }
+      p = p->next;
+    }
+
+    if (!found)
+      break;
+  }
 }
 
 void initScoreboard()
@@ -614,6 +648,7 @@ void initScoreboard()
     insertScore(p);
     p = p->next;
   }
+  orderScoreboard();
   printf("Scoreboard initialized");
 }
 
@@ -644,7 +679,7 @@ void paintScoreboard()
   TScoreboard *score = scoreList;
   int i = 0;
   float y;
-  while (score != nullptr)
+  while (score != nullptr /* && score->score > 0 */)
   {
     y = 80 + (50 * i) + scrollOffset;
     paintScore(y, score->score, i, score->username, score->date);
@@ -660,13 +695,60 @@ void paintScoreboard()
   esat::DrawSetFillColor(250, 255, 255, 20);
   esat::DrawSolidPath(&sqPoints[0].x, 4);
 
+  if (i > 10)
+  {
+    // i * 50 = altura total scorelist
+    // 500 = altura max scroller
+
+    // 500 = 100
+    // 1000 = x
+    
+    // altura = m / (((t*100)/m)/100)
+
+     float scrollerHeight = 500 * (500.0f / (i * 50.0f));
+
+   
+
+    if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Down))
+    {
+      scrollOffset -= 4;
+    }else if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
+    {
+      scrollOffset += 4;
+    }
+    if (scrollOffset < -( (i*50)-500))
+    {
+      scrollOffset = -( (i*50)-500);
+    }
+    if (scrollOffset > 0)
+    {
+      scrollOffset = 0;
+    }
+    printf("\n%f", scrollOffset);
+     *(sqPoints + 0) = {742, 80-scrollOffset};
+    *(sqPoints + 1) = {759, 80-scrollOffset};
+    *(sqPoints + 2) = {759, 80+scrollerHeight - scrollOffset};
+    *(sqPoints + 3) = {742, 80+scrollerHeight - scrollOffset};
+    esat::DrawSetStrokeColor(250, 250, 250, 255);
+    esat::DrawSetFillColor(250, 250, 250, 180);
+    esat::DrawSolidPath(&sqPoints[0].x, 4);
+    
+    
+    
+  }
+
   // Background
   *(sqPoints + 0) = {0, 0};
   *(sqPoints + 1) = {800, 0};
   *(sqPoints + 2) = {800, 79};
   *(sqPoints + 3) = {0, 79};
   esat::DrawSetStrokeColor(0, 0, 0, 255);
-  esat::DrawSetFillColor(50, 0, 0, 255);
+  esat::DrawSetFillColor(0, 0, 0, 255);
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  *(sqPoints + 0) = {0, 581};
+  *(sqPoints + 1) = {800, 581};
+  *(sqPoints + 2) = {800, 800};
+  *(sqPoints + 3) = {0, 800};
   esat::DrawSolidPath(&sqPoints[0].x, 4);
 }
 
@@ -935,7 +1017,7 @@ void shipDeath()
     isNewTop10 = false;
     GAMESTATE = GAMEOVER;
     PrintUser(user1);
-    printf("ship score: %d\n",ship.score);
+    printf("ship score: %d\n", ship.score);
     if (ship.score > user1->highscore)
     {
       printf("NEW HIGHSCORE");
