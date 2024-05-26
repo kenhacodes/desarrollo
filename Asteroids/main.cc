@@ -160,6 +160,9 @@ zoro::Vec2 *sqPoints; // Square points
 char *TextBuffer = nullptr;
 
 TPopup popup;
+
+TButton *adminButton = nullptr;
+
 TButton *currentFocus = nullptr;
 
 TButton *username = nullptr;
@@ -175,6 +178,9 @@ TButton *birthday = nullptr;
 TButton *highscoreDate = nullptr;
 
 bool lookingNextButton = false;
+
+bool mouseIsDown = false;
+zoro::Vec2 mouseDownPos;
 
 float scrollOffset = 0.0f;
 
@@ -229,6 +235,7 @@ const float shipScale = 30.0f;
 
 void startNewGame();
 bool checkColP(ast::TColPoints *colP, ast::TAsteroid *p, zoro::Vec2 pos, bool inner);
+void startNewLevel();
 
 // -----------------------------------User Data -----------------------------------
 
@@ -543,6 +550,37 @@ bool checkUsernameValid(TUser *usercheck)
   return true;
 }
 
+bool checkDate(char *date)
+{
+
+  if (*(date + 0) < 48 || *(date + 0) > 51)
+    return false;
+  if (*(date + 1) < 48 || *(date + 1) > 57)
+    return false;
+
+  if (*(date + 2) != '/')
+    return false;
+
+  if (*(date + 3) < 48 || *(date + 3) > 57)
+    return false;
+  if (*(date + 4) < 48 || *(date + 4) > 57)
+    return false;
+
+  if (*(date + 5) != '/')
+    return false;
+
+  if (*(date + 6) < 48 || *(date + 6) > 57)
+    return false;
+  if (*(date + 7) < 48 || *(date + 7) > 57)
+    return false;
+  if (*(date + 8) < 48 || *(date + 8) > 57)
+    return false;
+  if (*(date + 9) < 48 || *(date + 9) > 57)
+    return false;
+
+  return true;
+}
+
 void updateUser()
 {
   TUserList *p = UserList;
@@ -666,12 +704,16 @@ void paintScore(float y, int score, int order, char *user, char *date)
 
   esat::DrawSetFillColor(255, 255, 255, 255);
   esat::DrawSetTextSize(30);
-  esat::DrawText(100, y + 35, user);
-  esat::DrawText(300, y + 35, date);
+  esat::DrawText(110, y + 35, user);
+
   itoa(order + 1, TextBuffer, 10);
   esat::DrawText(60, y + 35, TextBuffer);
   itoa(score, TextBuffer, 10);
-  esat::DrawText(500, y + 35, TextBuffer);
+  esat::DrawText(580, y + 35, TextBuffer);
+
+  esat::DrawSetFillColor(255, 255, 255, 150);
+  esat::DrawSetTextSize(20);
+  esat::DrawText(443, y + 32, date);
 }
 
 void paintScoreboard()
@@ -700,41 +742,53 @@ void paintScoreboard()
     // i * 50 = altura total scorelist
     // 500 = altura max scroller
 
-    // 500 = 100
-    // 1000 = x
-    
-    // altura = m / (((t*100)/m)/100)
+    float scrollerHeight = 500 * (500.0f / (i * 50.0f));
 
-     float scrollerHeight = 500 * (500.0f / (i * 50.0f));
+    if (esat::MousePositionX() < 770 && esat::MousePositionX() > 735 && esat::MousePositionY() > 70 && esat::MousePositionY() < 590 && esat::MouseButtonDown(0))
+    {
+      mouseIsDown = true;
+      mouseDownPos = {(float)esat::MousePositionX(), (float)esat::MousePositionY()};
+    }
 
-   
+    if (esat::MouseButtonUp(0))
+      mouseIsDown = false;
 
     if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Down))
     {
       scrollOffset -= 4;
-    }else if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
+    }
+    else if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
     {
       scrollOffset += 4;
     }
-    if (scrollOffset < -( (i*50)-500))
+
+    if (mouseIsDown)
     {
-      scrollOffset = -( (i*50)-500);
+      scrollOffset += mouseDownPos.y - esat::MousePositionY();
+      mouseDownPos.y = esat::MousePositionY();
+    }
+
+    if (scrollOffset < -((i * 50) - 500))
+    {
+      scrollOffset = -((i * 50) - 500);
     }
     if (scrollOffset > 0)
     {
       scrollOffset = 0;
     }
-    printf("\n%f", scrollOffset);
-     *(sqPoints + 0) = {742, 80-scrollOffset};
-    *(sqPoints + 1) = {759, 80-scrollOffset};
-    *(sqPoints + 2) = {759, 80+scrollerHeight - scrollOffset};
-    *(sqPoints + 3) = {742, 80+scrollerHeight - scrollOffset};
+
+    float scrollerOffsethandle = (scrollOffset * 500) / (i * 50);
+
+    *(sqPoints + 0) = {742, 80 - scrollerOffsethandle};
+    *(sqPoints + 1) = {759, 80 - scrollerOffsethandle};
+    *(sqPoints + 2) = {759, 80 + scrollerHeight - scrollerOffsethandle};
+    *(sqPoints + 3) = {742, 80 + scrollerHeight - scrollerOffsethandle};
+
     esat::DrawSetStrokeColor(250, 250, 250, 255);
     esat::DrawSetFillColor(250, 250, 250, 180);
+    if (mouseIsDown)
+      esat::DrawSetFillColor(210, 210, 250, 180);
     esat::DrawSolidPath(&sqPoints[0].x, 4);
-    
-    
-    
   }
 
   // Background
@@ -754,7 +808,20 @@ void paintScoreboard()
 
 bool isTop10HS(int score)
 {
-  return true;
+  initScoreboard();
+  orderScoreboard();
+  TScoreboard *p = scoreList;
+  int i = 0;
+
+  while (i <= 10)
+  {
+    if (score > p->score)
+    {
+      return true;
+    }
+    p = p->next;
+  }
+  return false;
 }
 
 // ----------------------------------- Inits -----------------------------------
@@ -793,6 +860,18 @@ void init()
   esat::DrawSetTextFont("./resources/fonts/Hyperspace.otf");
   shotlist = nullptr;
   InterfaceList = nullptr;
+
+  adminButton = (TButton *)malloc(1 * sizeof(TButton));
+  
+  adminButton->fontSize = 40;
+  adminButton->focused = false;
+  adminButton->hasLabel = false;
+  adminButton->isInput = false;
+  adminButton->idFunction = 4;
+  adminButton->pos = {400, 640};
+  adminButton->windowContext = MENU;
+  adminButton->dimensions = {400, 40};
+  adminButton->text = "admin";
 
   for (int i = 0; i < totalAsteroidTypes; i++)
   {
@@ -1020,10 +1099,13 @@ void shipDeath()
     printf("ship score: %d\n", ship.score);
     if (ship.score > user1->highscore)
     {
-      printf("NEW HIGHSCORE");
+      printf("NEW HIGHSCORE\n");
       isNewTop10 = isTop10HS(ship.score);
+      user1->credits += 5;
       user1->highscore = ship.score;
-      SaveDataUser();
+
+      cleanChar(highscoreDate->text);
+      user1->highscoreDate = highscoreDate->text;
     }
   }
   else
@@ -1609,7 +1691,7 @@ void asteroidsManager()
   if (asteroidList == nullptr)
   {
     level++;
-    startNewGame();
+    startNewLevel();
   }
 
   while (p != nullptr)
@@ -1966,7 +2048,16 @@ void callButtonFunction(int id)
 
     if (isLogged)
     {
-      startNewGame();
+      if (user1->credits > 0)
+      {
+        startNewGame();
+      }
+      else
+      {
+        popup.Activate = true;
+        popup.maxActiveTime = 2000;
+        popup.text = "Not enough credits";
+      }
     }
     else
     {
@@ -2001,6 +2092,14 @@ void callButtonFunction(int id)
       popup.text = "Username already exists";
       return;
     }
+    if (!checkDate(tempUser->birthday))
+    {
+      popup.Activate = true;
+      popup.maxActiveTime = 2000;
+      popup.text = "Date format incorrect";
+      return;
+    }
+
     if (!checkIfUserDataIsFull(tempUser))
     {
       popup.Activate = true;
@@ -2008,14 +2107,47 @@ void callButtonFunction(int id)
       popup.text = "Fill all the data";
       return;
     }
-    printf("\nUSER INSERTED NOT ERROR OK GOOD FINE UWU!!!\n");
+
+    if (strcmp(tempUser->nick, "ADMIN") == 0)
+    {
+      tempUser->isAdmin = true;
+    }
+
     insertUser(tempUser, true);
     SaveDataUser();
     tempUser = nullptr;
     initEmptyUser(&tempUser);
     GAMESTATE = MENU;
     break;
+  case 8:
+    if (checkDate(highscoreDate->text))
+    {
+      GAMESTATE = SCOREBOARD;
+      initScoreboard();
+      SaveDataUser();
+    }
+    else
+    {
+      popup.Activate = true;
+      popup.maxActiveTime = 2000;
+      popup.text = "Date not correct :(";
+    }
 
+    break;
+  case 9:
+    if (checkDate(highscoreDate->text))
+    {
+      GAMESTATE = MENU;
+      SaveDataUser();
+    }
+    else
+    {
+      popup.Activate = true;
+      popup.maxActiveTime = 2000;
+      popup.text = "Date not correct :(";
+    }
+
+    break;
   default:
     break;
   }
@@ -2135,13 +2267,15 @@ void initInterfaceData()
 
   addButtonToList(newButton);
 
+  /*
   newButton.text = "admin";
-  newButton.idFunction = 4;
-  newButton.pos = {400, 640};
-  newButton.windowContext = MENU;
-  newButton.dimensions = {400, 40};
+    newButton.idFunction = 4;
+    newButton.pos = {400, 640};
+    newButton.windowContext = MENU;
+    newButton.dimensions = {400, 40};
 
-  addButtonToList(newButton);
+    addButtonToList(newButton);
+  */
 
   newButton.text = "login";
   newButton.idFunction = 0;
@@ -2160,7 +2294,7 @@ void initInterfaceData()
   addButtonToList(newButton);
 
   newButton.text = "SCOREBOARD";
-  newButton.idFunction = 1;
+  newButton.idFunction = 8;
   newButton.pos = {400, 720};
   newButton.windowContext = GAMEOVER;
   newButton.dimensions = {400, 40};
@@ -2252,127 +2386,131 @@ void initInterfaceData()
   newButton.pos = {400, 640};
   newButton.windowContext = SIGNUP;
   newButton.dimensions = {610, 40};
-  newButton.label = "birthday";
+  newButton.label = "birthday dd/mm/yyyy";
   birthday = addButtonToList(newButton);
 
   // Highscore Date
   newButton.pos = {400, 640};
   newButton.windowContext = GAMEOVER;
   newButton.dimensions = {410, 40};
-  newButton.label = "date";
+  newButton.label = "date dd/mm/yyyy";
   highscoreDate = addButtonToList(newButton);
+}
+
+void paintButton(TButton *p)
+{
+  zoro::Vec2 finalTextPos;
+  float mx, my;
+  *(sqPoints + 0) = p->pos;
+  (*(sqPoints + 0)).x -= p->dimensions.x / 2;
+  (*(sqPoints + 0)).y -= p->dimensions.y / 2;
+
+  *(sqPoints + 1) = p->pos;
+  (*(sqPoints + 1)).x += p->dimensions.x / 2;
+  (*(sqPoints + 1)).y -= p->dimensions.y / 2;
+
+  *(sqPoints + 2) = p->pos;
+  (*(sqPoints + 2)).x += p->dimensions.x / 2;
+  (*(sqPoints + 2)).y += p->dimensions.y / 2;
+
+  *(sqPoints + 3) = p->pos;
+  (*(sqPoints + 3)).x -= p->dimensions.x / 2;
+  (*(sqPoints + 3)).y += p->dimensions.y / 2;
+
+  mx = esat::MousePositionX();
+  my = esat::MousePositionY();
+
+  if (lookingNextButton)
+  {
+    p->focused = true;
+    currentFocus = p;
+    lookingNextButton = false;
+  }
+
+  if ((mx <= (*(sqPoints + 1)).x && mx >= (*(sqPoints + 0)).x) &&
+      (my <= (*(sqPoints + 2)).y && my >= (*(sqPoints + 0)).y))
+  {
+    if (esat::MouseButtonUp(0))
+    {
+      esat::ResetBufferdKeyInput();
+      if (p->isInput)
+      {
+        p->focused = true;
+        currentFocus = p;
+      }
+      else if (esat::Time() - MenuCooldownTime > MenuCooldownTimeRef)
+      {
+        callButtonFunction(p->idFunction);
+        MenuCooldownTime = esat::Time();
+      }
+    }
+
+    esat::DrawSetFillColor(255, 255, 255, 255);
+    esat::DrawSetStrokeColor(255, 255, 255, 255);
+    esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+    esat::DrawSetFillColor(0, 0, 0, 255);
+  }
+  else
+  {
+
+    if (p->focused)
+    {
+      esat::DrawSetFillColor(255, 255, 255, 200);
+      esat::DrawSetStrokeColor(255, 255, 255, 255);
+      esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+      esat::DrawSetFillColor(0, 0, 0, 255);
+    }
+    else
+    {
+      esat::DrawSetFillColor(255, 255, 255, 10);
+      esat::DrawSetStrokeColor(255, 255, 255, 255);
+      esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+      esat::DrawSetFillColor(255, 255, 255, 255);
+    }
+  }
+  if (p->text != nullptr)
+  {
+    esat::DrawSetTextSize(p->fontSize);
+
+    finalTextPos.y = p->pos.y + (p->dimensions.y / 2); // 1 fontsize = 0.75pixels
+    finalTextPos.y -= (p->dimensions.y - p->fontSize * 0.75) / 2;
+
+    finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
+    finalTextPos.x += (p->dimensions.x - strlen(p->text) * ((p->fontSize / 2) + 4)) / 2; // widthLetter = (fontsize / 2) + 4
+
+    esat::DrawText(finalTextPos.x, finalTextPos.y, p->text);
+
+    if (p->hasLabel)
+    {
+      esat::DrawSetFillColor(255, 255, 255, 255);
+      esat::DrawSetTextSize(p->fontSize / 2);
+      finalTextPos.y = p->pos.y - (p->dimensions.y / 2) - 4;
+      finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
+      esat::DrawText(finalTextPos.x, finalTextPos.y, p->label);
+    }
+  }
+  else
+  {
+    printf("Button has no text memory");
+  }
 }
 
 void paintMenu()
 {
-  // printf("\nPaint menu - ");
-  zoro::Vec2 finalTextPos;
-  float mx, my;
+
   TButton *p = InterfaceList;
   while (p != nullptr)
   {
     if (GAMESTATE == p->windowContext)
     {
-      *(sqPoints + 0) = p->pos;
-      (*(sqPoints + 0)).x -= p->dimensions.x / 2;
-      (*(sqPoints + 0)).y -= p->dimensions.y / 2;
-
-      *(sqPoints + 1) = p->pos;
-      (*(sqPoints + 1)).x += p->dimensions.x / 2;
-      (*(sqPoints + 1)).y -= p->dimensions.y / 2;
-
-      *(sqPoints + 2) = p->pos;
-      (*(sqPoints + 2)).x += p->dimensions.x / 2;
-      (*(sqPoints + 2)).y += p->dimensions.y / 2;
-
-      *(sqPoints + 3) = p->pos;
-      (*(sqPoints + 3)).x -= p->dimensions.x / 2;
-      (*(sqPoints + 3)).y += p->dimensions.y / 2;
-
-      mx = esat::MousePositionX();
-      my = esat::MousePositionY();
-
-      if (lookingNextButton)
-      {
-        p->focused = true;
-        currentFocus = p;
-        lookingNextButton = false;
-      }
-
-      if ((mx <= (*(sqPoints + 1)).x && mx >= (*(sqPoints + 0)).x) &&
-          (my <= (*(sqPoints + 2)).y && my >= (*(sqPoints + 0)).y))
-      {
-        if (esat::MouseButtonUp(0))
-        {
-          esat::ResetBufferdKeyInput();
-          if (p->isInput)
-          {
-            p->focused = true;
-            currentFocus = p;
-          }
-          else if (esat::Time() - MenuCooldownTime > MenuCooldownTimeRef)
-          {
-            callButtonFunction(p->idFunction);
-            MenuCooldownTime = esat::Time();
-          }
-        }
-
-        esat::DrawSetFillColor(255, 255, 255, 255);
-        esat::DrawSetStrokeColor(255, 255, 255, 255);
-        esat::DrawSolidPath(&sqPoints[0].x, 4);
-
-        esat::DrawSetFillColor(0, 0, 0, 255);
-      }
-      else
-      {
-
-        if (p->focused)
-        {
-          esat::DrawSetFillColor(255, 255, 255, 200);
-          esat::DrawSetStrokeColor(255, 255, 255, 255);
-          esat::DrawSolidPath(&sqPoints[0].x, 4);
-
-          esat::DrawSetFillColor(0, 0, 0, 255);
-        }
-        else
-        {
-          esat::DrawSetFillColor(255, 255, 255, 10);
-          esat::DrawSetStrokeColor(255, 255, 255, 255);
-          esat::DrawSolidPath(&sqPoints[0].x, 4);
-
-          esat::DrawSetFillColor(255, 255, 255, 255);
-        }
-      }
-      if (p->text != nullptr)
-      {
-        esat::DrawSetTextSize(p->fontSize);
-
-        finalTextPos.y = p->pos.y + (p->dimensions.y / 2); // 1 fontsize = 0.75pixels
-        finalTextPos.y -= (p->dimensions.y - p->fontSize * 0.75) / 2;
-
-        finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
-        finalTextPos.x += (p->dimensions.x - strlen(p->text) * ((p->fontSize / 2) + 4)) / 2; // widthLetter = (fontsize / 2) + 4
-
-        esat::DrawText(finalTextPos.x, finalTextPos.y, p->text);
-
-        if (p->hasLabel)
-        {
-          esat::DrawSetFillColor(255, 255, 255, 255);
-          esat::DrawSetTextSize(p->fontSize / 2);
-          finalTextPos.y = p->pos.y - (p->dimensions.y / 2) - 4;
-          finalTextPos.x = p->pos.x - (p->dimensions.x / 2);
-          esat::DrawText(finalTextPos.x, finalTextPos.y, p->label);
-        }
-      }
-      else
-      {
-        printf("Button has no text memory");
-      }
+      paintButton(p);
     }
 
     p = p->next;
   }
-  // printf("end...");
 }
 
 void paintPopup()
@@ -2586,10 +2724,8 @@ void freeMemory()
 
 // ----------------------------------- Managment -----------------------------------
 
-void startNewGame()
+void startNewLevel()
 {
-  GAMESTATE = INGAME;
-
   int numAsteroidsToGenerate = 2;
   if (level > 6)
   {
@@ -2626,6 +2762,14 @@ void startNewGame()
   UFORepositiontTime = esat::Time();
 }
 
+void startNewGame()
+{
+  GAMESTATE = INGAME;
+  user1->credits--;
+  level = 1;
+  startNewLevel();
+}
+
 void CEO()
 {
   input();
@@ -2638,6 +2782,21 @@ void CEO()
     esat::DrawText(190, 200, "asteroids");
     esat::DrawSetTextSize(30);
     esat::DrawText(260, 240, "guillermo bosca");
+    if (isLogged)
+    {
+      esat::DrawText(685, 790, "Logged");
+      itoa(user1->credits, TextBuffer, 10);
+      esat::DrawText(760, 30, TextBuffer);
+      if (user1->isAdmin)
+      {
+        esat::DrawText(10, 790, "ADMIN");
+        paintButton(adminButton);
+      }
+    }
+    else
+    {
+      esat::DrawText(612, 790, "Not logged");
+    }
 
     break;
 
@@ -2676,7 +2835,8 @@ void CEO()
     esat::DrawText(400, 350, TextBuffer);
     if (isNewTop10)
     {
-      esat::DrawText(150, 150, "NEW TOP 10 HIGHSCORE");
+      esat::DrawSetTextSize(33);
+      esat::DrawText(80, 150, "TOP 10 HIGHSCORE 5 EXTRA CREDITS!");
     }
     break;
   case SCOREBOARD:
@@ -2704,7 +2864,7 @@ int esat::main(int argc, char **argv)
   initInterfaceData();
 
   LoadUserList();
-  PrintUserList();
+  // PrintUserList();
 
   while (esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape))
   {
