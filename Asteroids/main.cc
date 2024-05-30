@@ -32,6 +32,7 @@ struct TUfo
   zoro::Mat3 M;
   float accuracy = 0;
   bool active = false;
+  int lastActiveLevel = 0;
 };
 
 struct TShip
@@ -134,6 +135,7 @@ struct TScoreboard
 
 enum WindowState GAMESTATE = MENU;
 bool isLogged = false;
+bool admin_change = false;
 int level = 1;
 
 bool isNewTop10 = false;
@@ -177,12 +179,26 @@ TButton *country = nullptr;
 TButton *birthday = nullptr;
 TButton *highscoreDate = nullptr;
 
+TButton *admin_username = nullptr;
+TButton *admin_password = nullptr;
+TButton *admin_email = nullptr;
+TButton *admin_name = nullptr;
+TButton *admin_lastname = nullptr;
+TButton *admin_prov = nullptr;
+TButton *admin_country = nullptr;
+TButton *admin_birthday = nullptr;
+TButton *admin_highscoreDate = nullptr;
+TButton *admin_credits = nullptr;
+TButton *admin_highscore = nullptr;
+
 bool lookingNextButton = false;
 
 bool mouseIsDown = false;
 zoro::Vec2 mouseDownPos;
 
 float scrollOffset = 0.0f;
+
+float asteroidSpeed = 1.5f;
 
 //    TIME VARIABLES
 unsigned char fps = 60;
@@ -205,6 +221,9 @@ double LastShotTime = 0.0f;
 
 const float UFORepositionTimeRef = 1000.0f;
 double UFORepositiontTime = 0.0f;
+
+float UFOAttackCooldownTimeRef = 2500.0f;
+double UFOAttackCooldownTime = 0.0f;
 
 const float UFOCooldownTimeRef = 15000.0f;
 double UFOCooldownTime = 0.0f;
@@ -229,13 +248,16 @@ const float shotMaxDistance = 700.0f;
 const int totalAsteroidTypes = 4;
 
 const float shotSpeed = 10.0f;
-const float asteroidSpeed = 1.5f;
 
 const float shipScale = 30.0f;
 
 void startNewGame();
 bool checkColP(ast::TColPoints *colP, ast::TAsteroid *p, zoro::Vec2 pos, bool inner);
 void startNewLevel();
+void deleteShot(TShot *s);
+bool ufoColisionCalculation(zoro::Vec2 pos);
+void ufoDeath();
+void ScrollbarController(int i, float boxheight, float min_height, float max_height, float width, float xpos);
 
 // -----------------------------------User Data -----------------------------------
 
@@ -406,6 +428,24 @@ bool deleteUser(int uid)
     ulist = ulist->next;
   }
   return isDeleted;
+}
+
+void SaveAdminEdit()
+{
+  tempUser->nick = strdup(admin_username->text);
+  tempUser->pass = strdup(admin_password->text);
+  tempUser->email = strdup(admin_email->text);
+  tempUser->name = strdup(admin_name->text);
+  tempUser->lastname = strdup(admin_lastname->text);
+  tempUser->prov = strdup(admin_prov->text);
+  tempUser->country = strdup(admin_country->text);
+  tempUser->birthday = strdup(admin_birthday->text);
+  tempUser->highscoreDate = strdup(admin_highscoreDate->text);
+
+  tempUser->credits = atoi(admin_credits->text);
+  tempUser->highscore = atoi(admin_highscore->text);
+
+  tempUser->isAdmin = admin_change;
 }
 
 void SaveDataUser()
@@ -739,56 +779,7 @@ void paintScoreboard()
 
   if (i > 10)
   {
-    // i * 50 = altura total scorelist
-    // 500 = altura max scroller
-
-    float scrollerHeight = 500 * (500.0f / (i * 50.0f));
-
-    if (esat::MousePositionX() < 770 && esat::MousePositionX() > 735 && esat::MousePositionY() > 70 && esat::MousePositionY() < 590 && esat::MouseButtonDown(0))
-    {
-      mouseIsDown = true;
-      mouseDownPos = {(float)esat::MousePositionX(), (float)esat::MousePositionY()};
-    }
-
-    if (esat::MouseButtonUp(0))
-      mouseIsDown = false;
-
-    if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Down))
-    {
-      scrollOffset -= 4;
-    }
-    else if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
-    {
-      scrollOffset += 4;
-    }
-
-    if (mouseIsDown)
-    {
-      scrollOffset += mouseDownPos.y - esat::MousePositionY();
-      mouseDownPos.y = esat::MousePositionY();
-    }
-
-    if (scrollOffset < -((i * 50) - 500))
-    {
-      scrollOffset = -((i * 50) - 500);
-    }
-    if (scrollOffset > 0)
-    {
-      scrollOffset = 0;
-    }
-
-    float scrollerOffsethandle = (scrollOffset * 500) / (i * 50);
-
-    *(sqPoints + 0) = {742, 80 - scrollerOffsethandle};
-    *(sqPoints + 1) = {759, 80 - scrollerOffsethandle};
-    *(sqPoints + 2) = {759, 80 + scrollerHeight - scrollerOffsethandle};
-    *(sqPoints + 3) = {742, 80 + scrollerHeight - scrollerOffsethandle};
-
-    esat::DrawSetStrokeColor(250, 250, 250, 255);
-    esat::DrawSetFillColor(250, 250, 250, 180);
-    if (mouseIsDown)
-      esat::DrawSetFillColor(210, 210, 250, 180);
-    esat::DrawSolidPath(&sqPoints[0].x, 4);
+    ScrollbarController(i, 50, 80, 580, 19, 741);
   }
 
   // Background
@@ -854,15 +845,27 @@ ast::TAsteroid *randomAsteroid()
   return asteroidNew;
 }
 
-void init()
+void initAdminButton(TButton **button, zoro::Vec2 pos, zoro::Vec2 dim, char *label)
 {
-  ast::InitList(&asteroidList);
-  esat::DrawSetTextFont("./resources/fonts/Hyperspace.otf");
-  shotlist = nullptr;
-  InterfaceList = nullptr;
+  *button = (TButton *)malloc(1 * sizeof(TButton));
 
+  (*button)->fontSize = 28;
+  (*button)->focused = false;
+  (*button)->hasLabel = true;
+  (*button)->isInput = true;
+  (*button)->idFunction = -1;
+  (*button)->windowContext = ADMIN;
+
+  (*button)->pos = pos;
+  (*button)->dimensions = dim;
+  (*button)->label = label;
+  (*button)->text = (char *)malloc(40 * sizeof(char));
+}
+
+void initAdminInterface()
+{
   adminButton = (TButton *)malloc(1 * sizeof(TButton));
-  
+
   adminButton->fontSize = 40;
   adminButton->focused = false;
   adminButton->hasLabel = false;
@@ -873,10 +876,32 @@ void init()
   adminButton->dimensions = {400, 40};
   adminButton->text = "admin";
 
+  initAdminButton(&admin_username, {545, 50}, {500, 40}, "USERNAME");
+  initAdminButton(&admin_password, {545, 120}, {500, 40}, "PASSWORD");
+  initAdminButton(&admin_credits, {545, 190}, {500, 40}, "CREDITS");
+  initAdminButton(&admin_email, {545, 260}, {500, 40}, "EMAIL");
+  initAdminButton(&admin_name, {545, 330}, {500, 40}, "NAME");
+  initAdminButton(&admin_lastname, {545, 400}, {500, 40}, "LAST NAME");
+  initAdminButton(&admin_prov, {545, 470}, {500, 40}, "PROVINCE");
+  initAdminButton(&admin_country, {545, 540}, {500, 40}, "COUNTRY");
+  initAdminButton(&admin_birthday, {545, 610}, {500, 40}, "BIRTHDAY dd/mm/yyyy");
+  initAdminButton(&admin_highscoreDate, {545, 680}, {500, 40}, "HIGHSCORE DATE dd/mm/yyyy");
+  initAdminButton(&admin_highscore, {545, 750}, {500, 40}, "HIGHSCORE");
+}
+
+void init()
+{
+  ast::InitList(&asteroidList);
+  esat::DrawSetTextFont("./resources/fonts/Hyperspace.otf");
+  shotlist = nullptr;
+  InterfaceList = nullptr;
+
   for (int i = 0; i < totalAsteroidTypes; i++)
   {
     ast::GenerateAsteroidColPoints((astDataTypes + i));
   }
+
+  initAdminInterface();
 
   // Pointers
   TextBuffer = (char *)malloc(30 * sizeof(char));
@@ -1020,8 +1045,43 @@ void GoToSignUp()
   tempUser->country = country->text;
   tempUser->birthday = birthday->text;
   */
+}
 
-  printf("end\n");
+void ChangeUserInAdmin(TUser *newtemp)
+{
+  tempUser = nullptr;
+  initEmptyUser(&tempUser);
+  tempUser = newtemp;
+
+  // Cleans inputs
+  cleanChar(admin_username->text);
+  cleanChar(admin_password->text);
+  cleanChar(admin_email->text);
+  cleanChar(admin_name->text);
+  cleanChar(admin_lastname->text);
+  cleanChar(admin_prov->text);
+  cleanChar(admin_country->text);
+  cleanChar(admin_birthday->text);
+  cleanChar(admin_highscoreDate->text);
+  cleanChar(admin_credits->text);
+  cleanChar(admin_highscore->text);
+
+  strcpy(admin_username->text, tempUser->nick);
+  strcpy(admin_password->text, tempUser->pass);
+  strcpy(admin_email->text, tempUser->email);
+  strcpy(admin_name->text, tempUser->name);
+  strcpy(admin_prov->text, tempUser->prov);
+  strcpy(admin_lastname->text, tempUser->lastname);
+  strcpy(admin_country->text, tempUser->country);
+  strcpy(admin_birthday->text, tempUser->birthday);
+  strcpy(admin_highscoreDate->text, tempUser->highscoreDate);
+
+  itoa(tempUser->credits, TextBuffer, 10);
+  strcpy(admin_credits->text, TextBuffer);
+  itoa(tempUser->highscore, TextBuffer, 10);
+  strcpy(admin_highscore->text, TextBuffer);
+
+  admin_change = tempUser->isAdmin;
 }
 
 // ----------------------------------- Ship -----------------------------------
@@ -1090,6 +1150,7 @@ void paintShip(TShip p_ship)
 
 void shipDeath()
 {
+  ship.lives--;
   printf("\nLives: %d", ship.lives);
   if (ship.lives <= 0)
   {
@@ -1097,6 +1158,7 @@ void shipDeath()
     GAMESTATE = GAMEOVER;
     PrintUser(user1);
     printf("ship score: %d\n", ship.score);
+
     if (ship.score > user1->highscore)
     {
       printf("NEW HIGHSCORE\n");
@@ -1110,18 +1172,73 @@ void shipDeath()
   }
   else
   {
+    if (ufo.active)
+    {
+      ufo.active = false;
+      ufo.lastActiveLevel = level;
+    }
+
     ship.isDying = true;
     ShipDyingAnimTime = esat::Time();
   }
 }
 
+bool shipPointColision(zoro::Vec2 pos)
+{
+  zoro::Vec2 a, b;
+  zoro::Vec3 temp;
+
+  int counter = 0;
+  for (int i = 0; i < 3; i++)
+  {
+    switch (i)
+    {
+    case 0:
+      a = {(ship.g_points + 0)->x, (ship.g_points + 0)->y};
+      b = {(ship.g_points + 1)->x, (ship.g_points + 1)->y};
+      break;
+    case 1:
+      a = {(ship.g_points + 1)->x, (ship.g_points + 1)->y};
+      b = {(ship.g_points + 4)->x, (ship.g_points + 4)->y};
+      break;
+    case 2:
+      a = {(ship.g_points + 4)->x, (ship.g_points + 4)->y};
+      b = {(ship.g_points + 0)->x, (ship.g_points + 0)->y};
+      break;
+    default:
+      break;
+    }
+
+    temp = zoro::Mat3TransformVec3(ship.M, {a.x, a.y, 1.0f});
+    a = {temp.x, temp.y};
+    temp = zoro::Mat3TransformVec3(ship.M, {b.x, b.y, 1.0f});
+    b = {temp.x, temp.y};
+
+    // esat::DrawLine(a.x, a.y, pos.x, pos.y);
+    float value = DotVec2(zoro::SubtractVec2(pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
+
+    if (value < 0.0f)
+    {
+      counter++;
+    }
+  }
+
+  if (counter == 3)
+  {
+    return true;
+  }
+  return false;
+}
+
 void shipColision()
 {
+
   zoro::Vec2 shipPoint;
   zoro::Vec3 gshipPoint;
   ast::TPaintColData *data = nullptr;
   ast::TColPoints *colP = nullptr;
   ast::TAsteroid *p = asteroidList;
+  TShot *s = shotlist;
   bool found = false;
 
   zoro::Vec2 a, b, pos;
@@ -1138,6 +1255,7 @@ void shipColision()
     *(ship.dr_points + i) = {tmp.x, tmp.y};
   }
 
+  // Ship colision with asteroids
   for (int i = 0; i < 5; i++)
   {
     if (i != 2 && i != 3)
@@ -1156,7 +1274,6 @@ void shipColision()
           if (colP == nullptr)
           {
             // Destroy ship
-            ship.lives--;
             shipDeath();
             return;
           }
@@ -1173,7 +1290,6 @@ void shipColision()
             if (!colisionWithEmpty)
             {
               // Destroy ship
-              ship.lives--;
               shipDeath();
               return;
             }
@@ -1181,12 +1297,96 @@ void shipColision()
         }
         p = p->next;
       }
+      if (ufoColisionCalculation(shipPoint))
+      {
+        shipDeath();
+        return;
+      }
     }
   }
 
+  // Bullet colision with ship
+  while (s != nullptr)
+  {
+    if (s->isEnemy)
+    {
+      if (shipPointColision(s->pos))
+      {
+        deleteShot(s);
+        shipDeath();
+        return;
+      }
+    }
+    s = s->next;
+  }
+
+  // Ufo colision with ship
+
+  /*
+    counter = 0;
+
+    for (int i = 0; i < ufoDataUp.kNPoints; i++)
+    {
+
+      a = *(ufoDataUp.dr_points + i);
+      if (i == ufoDataUp.kNPoints - 1)
+      {
+        b = *(ufoDataUp.dr_points + 0);
+      }
+      else
+      {
+        b = *(ufoDataUp.dr_points + i + 1);
+      }
+
+      value = DotVec2(zoro::SubtractVec2(shots->pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
+
+      if (value < 0.0f)
+      {
+        counter++;
+      }
+
+      if (counter == ufoDataUp.kNPoints)
+      {
+        ufoDeath();
+        deleteShot(shots);
+      }
+    }
+
+    // Down UFO
+    counter = 0;
+    for (int i = 0; i < ufoDataDown.kNPoints; i++)
+    {
+
+      a = *(ufoDataDown.dr_points + i);
+      if (i == ufoDataDown.kNPoints - 1)
+      {
+        b = *(ufoDataDown.dr_points + 0);
+      }
+      else
+      {
+        b = *(ufoDataDown.dr_points + i + 1);
+      }
+
+      value = DotVec2(zoro::SubtractVec2(shots->pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
+
+      if (value > 0.0f)
+      {
+        counter++;
+      }
+
+      if (counter == ufoDataDown.kNPoints)
+      {
+        ufoDeath();
+        deleteShot(shots);
+      }
+    }
+  */
+
+  // Ship colision with Ufo
+
   p = asteroidList;
   int counter = 0;
-
+  // Asteroids colision with ship
   while (p != nullptr)
   {
     data = (astDataTypes + p->type);
@@ -1195,47 +1395,12 @@ void shipColision()
     for (int j = 0; j < colP->NumColPoints - 1; j++)
     {
       counter = 0;
-      for (int i = 0; i < 3; i++)
-      {
+      temp = zoro::Mat3TransformVec3(p->M, {(colP->points + j)->x, (colP->points + j)->y, 1.0f});
+      pos = {temp.x, temp.y};
 
-        switch (i)
-        {
-        case 0:
-          a = {(ship.g_points + 0)->x, (ship.g_points + 0)->y};
-          b = {(ship.g_points + 1)->x, (ship.g_points + 1)->y};
-          break;
-        case 1:
-          a = {(ship.g_points + 1)->x, (ship.g_points + 1)->y};
-          b = {(ship.g_points + 4)->x, (ship.g_points + 4)->y};
-          break;
-        case 2:
-          a = {(ship.g_points + 4)->x, (ship.g_points + 4)->y};
-          b = {(ship.g_points + 0)->x, (ship.g_points + 0)->y};
-          break;
-        default:
-          break;
-        }
-
-        temp = zoro::Mat3TransformVec3(ship.M, {a.x, a.y, 1.0f});
-        a = {temp.x, temp.y};
-        temp = zoro::Mat3TransformVec3(ship.M, {b.x, b.y, 1.0f});
-        b = {temp.x, temp.y};
-
-        temp = zoro::Mat3TransformVec3(p->M, {(colP->points + j)->x, (colP->points + j)->y, 1.0f});
-        pos = {temp.x, temp.y};
-        // esat::DrawLine(a.x, a.y, pos.x, pos.y);
-        float value = DotVec2(zoro::SubtractVec2(pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
-
-        if (value < 0.0f)
-        {
-          counter++;
-        }
-      }
-
-      if (counter == 3)
+      if (shipPointColision(pos))
       {
         // Destroy ship
-        ship.lives--;
         shipDeath();
         return;
       }
@@ -1338,6 +1503,18 @@ void addShot(TShot s)
   }
 }
 
+void emptyShotList()
+{
+  TShot *s = shotlist;
+  TShot *p = nullptr;
+  while (s != nullptr)
+  {
+    p = s->next;
+    deleteShot(s);
+    s = p;
+  }
+}
+
 void deleteShot(TShot *s)
 {
 
@@ -1353,8 +1530,8 @@ void deleteShot(TShot *s)
   if (s->prev != nullptr)
     s->prev->next = s->next;
 
-  s = nullptr;
   free(s);
+  s = nullptr;
 }
 
 void moveShots()
@@ -1688,7 +1865,7 @@ void checkColisionAsteroid(ast::TAsteroid *p)
 void asteroidsManager()
 {
   ast::TAsteroid *p = asteroidList;
-  if (asteroidList == nullptr)
+  if (asteroidList == nullptr && !ufo.active)
   {
     level++;
     startNewLevel();
@@ -1711,18 +1888,15 @@ void shootUFO()
 {
   if (ufo.isBig)
   {
-    ufo.accuracy = rand() % (628) * 0.01;
+    ufo.accuracy = ((rand() % (628)) - 314) * 0.01;
+    if (level > 1)
+    {
+      ufo.accuracy *= 1 - (level * 0.1);
+    }
   }
   else
   {
-
-    if (314 - (level * 20) < 0.0f)
-      ufo.accuracy = 0.0f;
-    else
-    {
-      ufo.accuracy = rand() % (314 - (level * 20)) * 0.01;
-      ufo.accuracy -= ((314 - (level * 20)) / 2) * 0.01;
-    }
+    ufo.accuracy = 0.0f;
   }
 
   zoro::Vec2 baseDir = zoro::NormalizeVec2(zoro::SubtractVec2(ship.pos, ufo.pos));
@@ -1736,7 +1910,9 @@ void shootUFO()
   shot.isEnemy = true;
   shot.next = nullptr;
 
-  zoro::PrintVec2(shot.pos);
+  UFOAttackCooldownTime = esat::Time();
+
+  // zoro::PrintVec2(shot.pos);
   addShot(shot);
 }
 
@@ -1745,6 +1921,13 @@ void activateUFO()
   ufo.active = true;
   ufo.pos.x = -150.0f;
   ufo.pos.y = 300.0f + rand() % 200;
+  ufo.isBig = false;
+  if (rand() % 2 == 0)
+  {
+    ufo.isBig = true;
+  }
+
+  UFOAttackCooldownTime = esat::Time() - 500.0f; // Extra initial cooldown
 
   if (rand() % 2 == 1)
   {
@@ -1761,14 +1944,14 @@ void activateUFO()
 
 void deactivateUFO()
 {
-  printf("Deactivated\n");
+  // printf("Deactivated\n");
   UFOCooldownTime = esat::Time();
   ufo.active = false;
 }
 
 void repositionUFO()
 {
-  printf("Repositioning\n");
+  // printf("Repositioning\n");
 
   if (ufo.dir.y != 0)
   {
@@ -1802,7 +1985,7 @@ void AIufo()
   if (!ufo.active)
   {
     if ((esat::Time() - LastShotTime > LastShotTimeRef || ast::ListLength(asteroidList, true) < 8) &&
-        esat::Time() - UFOCooldownTime > UFOCooldownTimeRef)
+        esat::Time() - UFOCooldownTime > UFOCooldownTimeRef && ufo.lastActiveLevel != level)
     {
       activateUFO();
     }
@@ -1822,11 +2005,16 @@ void AIufo()
         UFORepositiontTime = esat::Time();
       }
     }
+    if (esat::Time() - UFOAttackCooldownTime > UFOAttackCooldownTimeRef)
+    {
+      shootUFO();
+    }
   }
 }
 
 void moveUfo()
 {
+
   if (ufo.active)
   {
     ufo.pos = zoro::SumVec2(ufo.pos, zoro::ScaleVec2(zoro::NormalizeVec2(ufo.dir), ufo.speed));
@@ -1836,11 +2024,11 @@ void moveUfo()
 
     if (ufo.isBig)
     {
-      ufo.M = zoro::Mat3Multiply(zoro::Mat3Scale(60.0f, 60.0f), ufo.M);
+      ufo.M = zoro::Mat3Multiply(zoro::Mat3Scale(40.0f, 40.0f), ufo.M);
     }
     else
     {
-      ufo.M = zoro::Mat3Multiply(zoro::Mat3Scale(20.0f, 20.0f), ufo.M);
+      ufo.M = zoro::Mat3Multiply(zoro::Mat3Scale(22.0f, 22.0f), ufo.M);
     }
   }
 }
@@ -1869,73 +2057,99 @@ void paintUfo()
   esat::DrawSolidPath(&ufoDataDown.dr_points[0].x, ufoDataDown.kNPoints);
 }
 
-void ufoColision()
+void ufoDeath()
 {
-  TShot *shots = shotlist;
+  if (ufo.isBig)
+  {
+    ship.score += 200;
+  }
+  else
+  {
+    ship.score += 100;
+  }
+  ufo.active = false;
+  ufo.lastActiveLevel = level;
+}
+
+bool ufoColisionCalculation(zoro::Vec2 point)
+{
   zoro::Vec2 a, b;
   zoro::Vec3 temp;
   float value;
   int counter;
 
+  counter = 0;
+
+  for (int i = 0; i < ufoDataUp.kNPoints; i++)
+  {
+
+    a = *(ufoDataUp.dr_points + i);
+    if (i == ufoDataUp.kNPoints - 1)
+    {
+      b = *(ufoDataUp.dr_points + 0);
+    }
+    else
+    {
+      b = *(ufoDataUp.dr_points + i + 1);
+    }
+
+    value = DotVec2(zoro::SubtractVec2(point, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
+
+    if (value < 0.0f)
+    {
+      counter++;
+    }
+
+    if (counter == ufoDataUp.kNPoints)
+    {
+
+      return true;
+    }
+  }
+
+  // Down UFO
+  counter = 0;
+  for (int i = 0; i < ufoDataDown.kNPoints; i++)
+  {
+
+    a = *(ufoDataDown.dr_points + i);
+    if (i == ufoDataDown.kNPoints - 1)
+    {
+      b = *(ufoDataDown.dr_points + 0);
+    }
+    else
+    {
+      b = *(ufoDataDown.dr_points + i + 1);
+    }
+
+    value = DotVec2(zoro::SubtractVec2(point, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
+
+    if (value > 0.0f)
+    {
+      counter++;
+    }
+
+    if (counter == ufoDataDown.kNPoints)
+    {
+
+      return true;
+    }
+  }
+  return false;
+}
+
+void ufoColision()
+{
+  TShot *shots = shotlist;
+
   while (shots != nullptr)
   {
     if (!shots->isEnemy)
     {
-
-      counter = 0;
-
-      for (int i = 0; i < ufoDataUp.kNPoints; i++)
+      if (ufoColisionCalculation(shots->pos))
       {
-
-        a = *(ufoDataUp.dr_points + i);
-        if (i == ufoDataUp.kNPoints - 1)
-        {
-          b = *(ufoDataUp.dr_points + 0);
-        }
-        else
-        {
-          b = *(ufoDataUp.dr_points + i + 1);
-        }
-
-        value = DotVec2(zoro::SubtractVec2(shots->pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
-
-        if (value < 0.0f)
-        {
-          counter++;
-        }
-
-        if (counter == ufoDataUp.kNPoints)
-        {
-          deleteShot(shots);
-        }
-      }
-
-      // Down UFO
-      counter = 0;
-      for (int i = 0; i < ufoDataDown.kNPoints; i++)
-      {
-
-        a = *(ufoDataDown.dr_points + i);
-        if (i == ufoDataDown.kNPoints - 1)
-        {
-          b = *(ufoDataDown.dr_points + 0);
-        }
-        else
-        {
-          b = *(ufoDataDown.dr_points + i + 1);
-        }
-
-        value = DotVec2(zoro::SubtractVec2(shots->pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
-
-        if (value > 0.0f)
-        {
-          counter++;
-        }
-
-        if (counter == ufoDataDown.kNPoints)
-        {
-          deleteShot(shots);
-        }
+        ufoDeath();
+        deleteShot(shots);
       }
     }
 
@@ -1951,12 +2165,15 @@ void ufoManager()
   }
 
   AIufo();
-  moveUfo();
-  ufoColision();
-  paintUfo();
+  if (ufo.active)
+  {
+    moveUfo();
+    ufoColision();
+    paintUfo();
+  }
 }
 
-// ----------------------------------- GUI -----------------------------------
+// ----------------------------------- Game UI -----------------------------------
 
 void paintGUI()
 {
@@ -2003,6 +2220,23 @@ void paintGUI()
 
 // ----------------------------------- Interface -----------------------------------
 
+bool checkMouseClick(float minx, float maxx, float miny, float maxy, int mouseType)
+{
+  float mx, my;
+  mx = esat::MousePositionX();
+  my = esat::MousePositionY();
+  if (mx > minx && mx < maxx && my > miny && my < maxy)
+  {
+    if (mouseType == -1)
+      return true;
+
+    if (esat::MouseButtonDown(mouseType))
+      return true;
+  }
+
+  return false;
+}
+
 void resetPopup()
 {
   popup.Activate = false;
@@ -2032,6 +2266,7 @@ void callButtonFunction(int id)
     }
     break;
   case 1:
+    scrollOffset = 0;
     GAMESTATE = SCOREBOARD;
     initScoreboard();
     break;
@@ -2043,6 +2278,8 @@ void callButtonFunction(int id)
     break;
   case 4:
     GAMESTATE = ADMIN;
+    ChangeUserInAdmin(user1);
+    scrollOffset = 0;
     break;
   case 5:
 
@@ -2148,6 +2385,14 @@ void callButtonFunction(int id)
     }
 
     break;
+  case 10:
+
+    SaveAdminEdit();
+    SaveDataUser();
+    popup.Activate = true;
+    popup.maxActiveTime = 1000;
+    popup.text = "Saved :)";
+    break;
   default:
     break;
   }
@@ -2235,11 +2480,19 @@ void initInterfaceData()
 
   addButtonToList(newButton);
 
+  newButton.text = "SAVE";
+  newButton.idFunction = 10;
+  newButton.pos = {145, 720};
+  newButton.windowContext = ADMIN;
+  newButton.dimensions = {280, 40};
+
+  addButtonToList(newButton);
+
   newButton.text = "go back";
   newButton.idFunction = 3;
-  newButton.pos = {400, 640};
+  newButton.pos = {145, 775};
   newButton.windowContext = ADMIN;
-  newButton.dimensions = {400, 40};
+  newButton.dimensions = {280, 40};
 
   addButtonToList(newButton);
 
@@ -2498,6 +2751,229 @@ void paintButton(TButton *p)
   }
 }
 
+void ScrollbarController(int i, float boxheight, float min_height, float max_height, float width, float xpos)
+{
+  // i * 50 = altura total scorelist
+  // 500 = altura max scroller
+  float scrollRange = max_height - min_height;
+  float contentSize = (i * boxheight);
+
+  float scrollerHeight = scrollRange * (scrollRange / contentSize);
+
+  if (esat::MousePositionX() < xpos + width && esat::MousePositionX() > xpos && esat::MousePositionY() > min_height && esat::MousePositionY() < max_height && esat::MouseButtonDown(0))
+  {
+    mouseIsDown = true;
+    mouseDownPos = {(float)esat::MousePositionX(), (float)esat::MousePositionY()};
+  }
+
+  if (esat::MouseButtonUp(0))
+    mouseIsDown = false;
+
+  if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Down))
+  {
+    scrollOffset -= 4;
+  }
+  else if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
+  {
+    scrollOffset += 4;
+  }
+
+  if (mouseIsDown)
+  {
+    scrollOffset += mouseDownPos.y - esat::MousePositionY();
+    mouseDownPos.y = esat::MousePositionY();
+  }
+
+  if (scrollOffset < -(contentSize - scrollRange))
+  {
+    scrollOffset = -(contentSize - scrollRange);
+  }
+  if (scrollOffset > 0)
+  {
+    scrollOffset = 0;
+  }
+
+  float scrollerOffsethandle = (scrollOffset * scrollRange) / contentSize;
+
+  *(sqPoints + 0) = {xpos, min_height - scrollerOffsethandle};
+  *(sqPoints + 1) = {xpos + width, min_height - scrollerOffsethandle};
+  *(sqPoints + 2) = {xpos + width, min_height + scrollerHeight - scrollerOffsethandle};
+  *(sqPoints + 3) = {xpos, min_height + scrollerHeight - scrollerOffsethandle};
+
+  esat::DrawSetStrokeColor(250, 250, 250, 255);
+  esat::DrawSetFillColor(250, 250, 250, 180);
+  if (mouseIsDown)
+    esat::DrawSetFillColor(210, 210, 250, 180);
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+}
+
+void PaintUser(float y, TUserList *pUser, bool selected)
+{
+  *(sqPoints + 0) = {5, y};
+  *(sqPoints + 1) = {270, y};
+  *(sqPoints + 2) = {270, y + 40};
+  *(sqPoints + 3) = {5, y + 40};
+
+  esat::DrawSetStrokeColor(255, 255, 255, 255);
+  esat::DrawSetFillColor(255, 255, 255, 15);
+  esat::DrawSetTextSize(20);
+
+  if (esat::MousePositionX() < 270 && esat::MousePositionY() > y && esat::MousePositionY() < y + 40 && esat::MousePositionY() < 620 && esat::MouseButtonDown(0))
+  {
+    ChangeUserInAdmin(pUser->user);
+  }
+
+  if (selected)
+    esat::DrawSetFillColor(255, 255, 255, 250);
+
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+  esat::DrawSetFillColor(255, 255, 255, 255);
+
+  if (selected)
+    esat::DrawSetFillColor(0, 0, 0, 255);
+
+  esat::DrawText(50, y + 28, pUser->user->nick);
+
+  itoa(pUser->user->id, TextBuffer, 10);
+  esat::DrawText(10, y + 28, TextBuffer);
+}
+
+void AdminUserScrollManager()
+{
+
+  TUserList *ulist = UserList;
+  int i = 0;
+
+  while (ulist != nullptr)
+  {
+
+    if (tempUser->id == ulist->user->id)
+      PaintUser(10 + (i * 40) + scrollOffset, ulist, true);
+    else
+      PaintUser(10 + (i * 40) + scrollOffset, ulist, false);
+
+    ulist = ulist->next;
+    i++;
+  }
+
+  (*(sqPoints + 0)) = {270, 10};
+  (*(sqPoints + 1)) = {285, 10};
+  (*(sqPoints + 2)) = {285, 620};
+  (*(sqPoints + 3)) = {270, 620};
+
+  esat::DrawSetFillColor(255, 255, 255, 0);
+  esat::DrawSetStrokeColor(255, 255, 255, 255);
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+  if (i > 15)
+  {
+    ScrollbarController(i, 40, 10, 620, 15, 270);
+
+    esat::DrawSetFillColor(0, 0, 0, 255);
+    esat::DrawSetStrokeColor(255, 255, 255, 0);
+
+    (*(sqPoints + 0)) = {0, 621};
+    (*(sqPoints + 1)) = {290, 621};
+    (*(sqPoints + 2)) = {290, 800};
+    (*(sqPoints + 3)) = {0, 800};
+
+    esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+    (*(sqPoints + 0)) = {0, 0};
+    (*(sqPoints + 1)) = {290, 0};
+    (*(sqPoints + 2)) = {290, 9};
+    (*(sqPoints + 3)) = {0, 9};
+
+    esat::DrawSolidPath(&sqPoints[0].x, 4);
+  }
+}
+
+void paintAdmin()
+{
+  float mx, my;
+  mx = esat::MousePositionX();
+  my = esat::MousePositionY();
+
+  paintButton(admin_username);
+  paintButton(admin_password);
+  paintButton(admin_email);
+  paintButton(admin_name);
+  paintButton(admin_prov);
+  paintButton(admin_lastname);
+  paintButton(admin_country);
+  paintButton(admin_birthday);
+  paintButton(admin_highscoreDate);
+  paintButton(admin_credits);
+  paintButton(admin_highscore);
+
+  esat::DrawSetStrokeColor(255, 255, 255, 100);
+  esat::DrawLine(290, 0, 290, 800);
+
+  // Scroll of users
+  AdminUserScrollManager();
+
+  esat::DrawSetFillColor(255, 255, 255, 0);
+  esat::DrawSetStrokeColor(255, 255, 255, 255);
+
+  // IS ADMIN CHECKBOX
+  (*(sqPoints + 0)) = {5, 630};
+  (*(sqPoints + 1)) = {285, 630};
+  (*(sqPoints + 2)) = {285, 670};
+  (*(sqPoints + 3)) = {5, 670};
+
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+
+  (*(sqPoints + 0)) = {245, 635};
+  (*(sqPoints + 1)) = {280, 635};
+  (*(sqPoints + 2)) = {280, 665};
+  (*(sqPoints + 3)) = {245, 665};
+
+  if (checkMouseClick(245, 280, 635, 665, -1))
+  {
+    esat::DrawSetFillColor(255, 255, 255, 255);
+    esat::DrawSetStrokeColor(255, 255, 255, 255);
+    if (esat::MouseButtonDown(0))
+    {
+      tempUser->isAdmin = !tempUser->isAdmin;
+      admin_change = tempUser->isAdmin;
+    }
+  }
+
+  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSetStrokeColor(255, 255, 255, 255);
+  if (tempUser->isAdmin)
+  {
+    if (checkMouseClick(245, 280, 635, 665, -1))
+      esat::DrawSetStrokeColor(0, 0, 0, 255);
+
+    esat::DrawLine(248, 655, 255, 663);
+    esat::DrawLine(255, 663, 273, 638);
+  }
+
+  esat::DrawSetTextSize(35);
+  esat::DrawSetFillColor(255, 255, 255, 255);
+  esat::DrawText(10, 664, "IS ADMIN");
+
+  if (esat::IsSpecialKeyDown(esat::kSpecialKey_Delete))
+  {
+    int id = tempUser->id;
+    popup.Activate = true;
+    popup.maxActiveTime = 2000;
+    if (id != user1->id)
+    {
+      deleteUser(id);
+      ChangeUserInAdmin(user1);
+      popup.text = "User deleted succesfully";
+      SaveDataUser();
+    }
+    else
+    {
+      popup.text = "ERROR CANNOT DELETE USER WHILE LOGGED IN";
+    }
+  }
+}
+
 void paintMenu()
 {
 
@@ -2717,15 +3193,18 @@ void ClearDrawCoolEffectUwU()
   esat::DrawSolidPath(&p[0].x, 4);
 }
 
-void freeMemory()
-{
-  //  OwO
-}
-
 // ----------------------------------- Managment -----------------------------------
 
 void startNewLevel()
 {
+  emptyShotList();
+  deactivateUFO();
+  if (level > 1 && level < 12)
+  {
+    ufo.speed *= 1.1f;
+    asteroidSpeed *= 1.05f;
+  }
+
   int numAsteroidsToGenerate = 2;
   if (level > 6)
   {
@@ -2756,7 +3235,6 @@ void startNewLevel()
   ship.acceleration = {0.0f, 0.0f};
   ship.angle = 0.0f;
   ufo.active = false;
-  ship.lives = 3;
 
   UFOCooldownTime = esat::Time();
   UFORepositiontTime = esat::Time();
@@ -2767,6 +3245,7 @@ void startNewGame()
   GAMESTATE = INGAME;
   user1->credits--;
   level = 1;
+  ship.lives = 3;
   startNewLevel();
 }
 
@@ -2841,6 +3320,9 @@ void CEO()
     break;
   case SCOREBOARD:
     paintScoreboard();
+    break;
+  case ADMIN:
+    paintAdmin();
     break;
   default:
     break;
