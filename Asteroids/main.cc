@@ -19,9 +19,9 @@ enum WindowState
   SIGNUP,
   INGAME,
   ADMIN,
-  PAUSE,
   GAMEOVER
 };
+
 
 struct TUfo
 {
@@ -376,8 +376,8 @@ void insertUser(TUser *newUser, bool isSignUp)
   }
 
   UserList = newUserInList;
-  printf("newuser: %d\ntempuser: %d", (int)newUserInList->user, (int)newUser);
-  printf("\nUSER ADDED TO LIST\n");
+  // printf("newuser: %d\ntempuser: %d", (int)newUserInList->user, (int)newUser);
+  // printf("\nUSER ADDED TO LIST\n");
 }
 
 void freeUser(TUser *user)
@@ -616,6 +616,8 @@ bool checkDate(char *date)
   if (*(date + 8) < 48 || *(date + 8) > 57)
     return false;
   if (*(date + 9) < 48 || *(date + 9) > 57)
+    return false;
+  if (*(date + 10) != '\0')
     return false;
 
   return true;
@@ -1021,7 +1023,7 @@ void initAstData()
 
 void GoToSignUp()
 {
-  printf("\nGoing to Signup - ");
+
   GAMESTATE = SIGNUP;
   EmptyUserData(tempUser);
 
@@ -1035,16 +1037,6 @@ void GoToSignUp()
   cleanChar(country->text);
   cleanChar(birthday->text);
   cleanChar(highscoreDate->text);
-  /*
-  tempUser->nick = username_Signup->text;
-  tempUser->pass = password_Signup->text;
-  tempUser->name = name->text;
-  tempUser->lastname = lastname->text;
-  tempUser->email = email->text;
-  tempUser->prov = prov->text;
-  tempUser->country = country->text;
-  tempUser->birthday = birthday->text;
-  */
 }
 
 void ChangeUserInAdmin(TUser *newtemp)
@@ -1151,17 +1143,17 @@ void paintShip(TShip p_ship)
 void shipDeath()
 {
   ship.lives--;
-  printf("\nLives: %d", ship.lives);
+  //printf("\nLives: %d", ship.lives);
   if (ship.lives <= 0)
   {
     isNewTop10 = false;
     GAMESTATE = GAMEOVER;
-    PrintUser(user1);
-    printf("ship score: %d\n", ship.score);
+    //PrintUser(user1);
+    //printf("ship score: %d\n", ship.score);
 
     if (ship.score > user1->highscore)
     {
-      printf("NEW HIGHSCORE\n");
+      //printf("NEW HIGHSCORE\n");
       isNewTop10 = isTop10HS(ship.score);
       user1->credits += 5;
       user1->highscore = ship.score;
@@ -1297,6 +1289,7 @@ void shipColision()
         }
         p = p->next;
       }
+
       if (ufoColisionCalculation(shipPoint))
       {
         shipDeath();
@@ -1319,68 +1312,6 @@ void shipColision()
     }
     s = s->next;
   }
-
-  // Ufo colision with ship
-
-  /*
-    counter = 0;
-
-    for (int i = 0; i < ufoDataUp.kNPoints; i++)
-    {
-
-      a = *(ufoDataUp.dr_points + i);
-      if (i == ufoDataUp.kNPoints - 1)
-      {
-        b = *(ufoDataUp.dr_points + 0);
-      }
-      else
-      {
-        b = *(ufoDataUp.dr_points + i + 1);
-      }
-
-      value = DotVec2(zoro::SubtractVec2(shots->pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
-
-      if (value < 0.0f)
-      {
-        counter++;
-      }
-
-      if (counter == ufoDataUp.kNPoints)
-      {
-        ufoDeath();
-        deleteShot(shots);
-      }
-    }
-
-    // Down UFO
-    counter = 0;
-    for (int i = 0; i < ufoDataDown.kNPoints; i++)
-    {
-
-      a = *(ufoDataDown.dr_points + i);
-      if (i == ufoDataDown.kNPoints - 1)
-      {
-        b = *(ufoDataDown.dr_points + 0);
-      }
-      else
-      {
-        b = *(ufoDataDown.dr_points + i + 1);
-      }
-
-      value = DotVec2(zoro::SubtractVec2(shots->pos, a), zoro::RightPerpendicularVec2(zoro::NormalizeVec2(zoro::SubtractVec2(b, a))));
-
-      if (value > 0.0f)
-      {
-        counter++;
-      }
-
-      if (counter == ufoDataDown.kNPoints)
-      {
-        ufoDeath();
-        deleteShot(shots);
-      }
-    }
-  */
 
   // Ship colision with Ufo
 
@@ -1463,9 +1394,6 @@ void shipManager()
     {
       paintShip(ship);
     }
-    else
-    {
-    }
   }
 }
 
@@ -1473,6 +1401,7 @@ void shipManager()
 
 void addShot(TShot s)
 {
+  // Allocates memory for shot based on s
   TShot *newShot = (TShot *)malloc(1 * sizeof(TShot));
 
   newShot->dir = s.dir;
@@ -1493,6 +1422,7 @@ void addShot(TShot s)
   newShot->prev = nullptr;
   newShot->travelDistance = 0.0f;
 
+  // Adds it to list
   if (shotlist == nullptr)
     shotlist = newShot;
   else
@@ -1711,6 +1641,7 @@ void addChildAsteroid(ast::TAsteroid *p)
 {
   if (p->size > 0)
   {
+    // Creates new asteroids
     ast::TAsteroid *new1, *new2;
 
     new1 = (ast::TAsteroid *)malloc(sizeof(ast::TAsteroid));
@@ -1724,12 +1655,12 @@ void addChildAsteroid(ast::TAsteroid *p)
 
     new1->speed = p->speed;
     new2->speed = p->speed;
-
+    // Random direction
     int dir = (rand() % 628) * 0.1;
     new1->dir = zoro::NormalizeVec2({cosf(dir), sinf(dir)});
     dir = (rand() % 628) * 0.1;
     new2->dir = zoro::NormalizeVec2({cosf(dir), sinf(dir)});
-
+    // New type of asteroid different to original
     do
     {
       new1->type = rand() % totalAsteroidTypes;
@@ -1738,7 +1669,7 @@ void addChildAsteroid(ast::TAsteroid *p)
     {
       new2->type = rand() % totalAsteroidTypes;
     } while (new2->type == p->type || new2->type == new1->type);
-
+    // Adds it to list
     ast::InsertList(&asteroidList, new1);
     ast::InsertList(&asteroidList, new2);
   }
@@ -1918,6 +1849,7 @@ void shootUFO()
 
 void activateUFO()
 {
+  // Activates UFO and repositions it.
   ufo.active = true;
   ufo.pos.x = -150.0f;
   ufo.pos.y = 300.0f + rand() % 200;
@@ -1931,13 +1863,11 @@ void activateUFO()
 
   if (rand() % 2 == 1)
   {
-    printf("Right start\n");
     ufo.pos.x += 950.0f;
     ufo.dir = {-1.0f, 0.0f}; // Move left
   }
   else
   {
-    printf("Left start\n");
     ufo.dir = {1.0f, 0.0f}; // Move right
   }
 }
@@ -1951,7 +1881,6 @@ void deactivateUFO()
 
 void repositionUFO()
 {
-  // printf("Repositioning\n");
 
   if (ufo.dir.y != 0)
   {
@@ -2080,6 +2009,9 @@ bool ufoColisionCalculation(zoro::Vec2 point)
 
   counter = 0;
 
+  if (!ufo.active)
+    return false;
+
   for (int i = 0; i < ufoDataUp.kNPoints; i++)
   {
 
@@ -2159,11 +2091,6 @@ void ufoColision()
 
 void ufoManager()
 {
-  if (esat::IsKeyDown('A'))
-  {
-    shootUFO();
-  }
-
   AIufo();
   if (ufo.active)
   {
@@ -2249,7 +2176,6 @@ void resetPopup()
 
 void callButtonFunction(int id)
 {
-
   switch (id)
   {
   case 0:
@@ -2400,6 +2326,7 @@ void callButtonFunction(int id)
 
 TButton *addButtonToList(TButton b)
 {
+  // Creates new button
   TButton *newbutton = (TButton *)malloc(1 * sizeof(TButton));
 
   newbutton->pos = b.pos;
@@ -2411,7 +2338,7 @@ TButton *addButtonToList(TButton b)
   newbutton->label = b.label;
   newbutton->hasLabel = b.hasLabel;
 
-  if (b.isInput)
+  if (b.isInput) // If is input allocates memory for the text
   {
     newbutton->text = (char *)malloc(40 * sizeof(char));
   }
@@ -2421,7 +2348,7 @@ TButton *addButtonToList(TButton b)
   }
 
   newbutton->focused = false;
-
+  // Adds button to list.
   newbutton->next = InterfaceList;
   InterfaceList = newbutton;
   return newbutton;
@@ -2847,7 +2774,6 @@ void AdminUserScrollManager()
 
   while (ulist != nullptr)
   {
-
     if (tempUser->id == ulist->user->id)
       PaintUser(10 + (i * 40) + scrollOffset, ulist, true);
     else
@@ -2857,6 +2783,7 @@ void AdminUserScrollManager()
     i++;
   }
 
+  // Scrollbar square
   (*(sqPoints + 0)) = {270, 10};
   (*(sqPoints + 1)) = {285, 10};
   (*(sqPoints + 2)) = {285, 620};
@@ -2868,7 +2795,10 @@ void AdminUserScrollManager()
 
   if (i > 15)
   {
+    // Scrollbar
     ScrollbarController(i, 40, 10, 620, 15, 270);
+
+    // Black background to limit what its shown.
 
     esat::DrawSetFillColor(0, 0, 0, 255);
     esat::DrawSetStrokeColor(255, 255, 255, 0);
@@ -2891,9 +2821,6 @@ void AdminUserScrollManager()
 
 void paintAdmin()
 {
-  float mx, my;
-  mx = esat::MousePositionX();
-  my = esat::MousePositionY();
 
   paintButton(admin_username);
   paintButton(admin_password);
@@ -3174,23 +3101,6 @@ void input()
       lookingNextButton = true;
     }
   }
-}
-
-// ----------------------------------- Extra -----------------------------------
-
-void ClearDrawCoolEffectUwU()
-{
-  zoro::Vec2 p[4];
-  p[0] = {-1.0f, -1.0f};
-  p[1] = {801.0f, -1.0f};
-  p[2] = {801.0f, 801.0f};
-  p[3] = {-1.0f, 801.0f};
-
-  ship.color = {(float)50 + rand() % 200, (float)50 + rand() % 200, (float)50 + rand() % 200};
-
-  esat::DrawSetStrokeColor(0, 0, 0, 255);
-  esat::DrawSetFillColor(0, 0, 0, 30);
-  esat::DrawSolidPath(&p[0].x, 4);
 }
 
 // ----------------------------------- Managment -----------------------------------

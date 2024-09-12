@@ -42,7 +42,6 @@ namespace ast
     int type;
     float speed = 3.0f;
     float angle;
-    double birthTime;
     zoro::Mat3 M;
   };
 
@@ -87,7 +86,7 @@ namespace ast
         (*(p->points + i + 1)).y = (*(data->g_points + i + (count))).y;
       }
     }
-    // Add shape
+   
   }
 
   void addToShape(TPaintColData *data, zoro::Vec2 newP)
@@ -99,8 +98,8 @@ namespace ast
 
   void GenerateAsteroidColPoints(TPaintColData *data)
   {
-    printf("\n---\n");
-    printf("(%d)\n", data->kNPoints);
+    //printf("\n---\n");
+    //printf("(%d)\n", data->kNPoints);
 
     zoro::Vec2 q, p, d;
     int offset;
@@ -145,8 +144,8 @@ namespace ast
 
       if (zoro::angleBetween(q, p, d) <= zoro::PI)
       {
-        printf("[%d](%f) ", i, zoro::angleBetween(p, q, d));
-        // printf("u ");
+        //printf("[%d](%f) ", i, zoro::angleBetween(p, q, d));
+        
         do
         {
           // q = p - 1
@@ -222,7 +221,7 @@ namespace ast
         addToShape(data, newPoint);
       }
     }
-    printf("\n---");
+    //printf("\n---");
   }
 
   bool IsEmpty(TAsteroid *Lista)
@@ -273,7 +272,7 @@ namespace ast
     nuevo->type = in_asteroid->type;
     nuevo->speed = in_asteroid->speed;
     nuevo->angle = in_asteroid->angle;
-    nuevo->birthTime = in_asteroid->birthTime;
+    
 
     nuevo->next = nullptr;
     nuevo->prev = nullptr;
