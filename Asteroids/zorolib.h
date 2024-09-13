@@ -261,6 +261,7 @@ Vec4 Vec4MultMat4Vec4(Mat4 mat, Vec4 vec) {
 };
 
 float angleBetween(Vec2 v1, Vec2 v2, Vec2 reference) {
+  
     Vec2 u = {v1.x - reference.x, v1.y - reference.y};
     Vec2 v = {v2.x - reference.x, v2.y - reference.y};
     

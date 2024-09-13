@@ -74,6 +74,10 @@ struct TShot
   float speed;
   float travelDistance;
   bool active;
+  float cooldown;
+  float barrierPos;
+  zoro::Vec2 *barr1;
+  zoro::Vec2 *barr2;
 };
 
 struct TButton
@@ -119,9 +123,38 @@ struct TScoreboard
   TScoreboard *prev;
 };
 
+struct TBarrier
+{
+  int radius;
+  bool *status;
+  int knPoints = 12;
+  zoro::Vec3 *g_points;
+  zoro::Vec2 *dr_points;
+  float angle = 0.0f;
+};
+
+struct TColor
+{
+  char r, g, b;
+};
+
+struct TExplosion
+{
+  TExplosion *next;
+  zoro::Vec2 pos;
+  zoro::Vec2 *dr_points;
+  float *speed;
+  float *magnitude;
+  float startTime;
+  float endTime;
+  int numPoints;
+  TColor color;
+};
+
 enum WindowState GAMESTATE = MENU;
 bool isLogged = false;
 bool admin_change = false;
+bool endAnim = false;
 int level = 1;
 
 bool isNewTop10 = false;
@@ -129,6 +162,8 @@ bool isNewTop10 = false;
 TUser *user1 = nullptr;
 TUser *tempUser = nullptr;
 TUserList *UserList = nullptr;
+
+TExplosion *expList = nullptr;
 
 TShip ship;
 TShip enemyShip;
@@ -143,6 +178,8 @@ zoro::Vec2 *sqPoints; // Square points
 char *TextBuffer = nullptr;
 
 TPopup popup;
+
+TBarrier *barriers;
 
 TButton *adminButton = nullptr;
 
@@ -179,7 +216,6 @@ zoro::Vec2 mouseDownPos;
 
 float scrollOffset = 0.0f;
 
-
 //    TIME VARIABLES
 unsigned char fps = 60;
 double current_time, last_time;
@@ -196,17 +232,8 @@ const float PaintTimeRef = 200.0f;
 double InvincibleTime = 0.0f;
 double PaintTime = 0.0f;
 
-const float LastShotTimeRef = 5000.0f;
+const float LastShotTimeRef = 3000.0f;
 double LastShotTime = 0.0f;
-
-const float UFORepositionTimeRef = 1000.0f;
-double UFORepositiontTime = 0.0f;
-
-float UFOAttackCooldownTimeRef = 2500.0f;
-double UFOAttackCooldownTime = 0.0f;
-
-const float UFOCooldownTimeRef = 15000.0f;
-double UFOCooldownTime = 0.0f;
 
 const float MenuCooldownTimeRef = 300.0f;
 double MenuCooldownTime = 0.0f;
@@ -214,7 +241,7 @@ double MenuCooldownTime = 0.0f;
 const float BackspaceCooldownTimeRef = 80.0f;
 double BackspaceCooldownTime = 0.0f;
 
-const float ShipDyingAnimTimeRef = 1000.0f;
+const float ShipDyingAnimTimeRef = 3000.0f;
 double ShipDyingAnimTime = 0.0f;
 
 //  CONSTANTS
@@ -228,13 +255,13 @@ const float shotMaxDistance = 700.0f;
 
 const float shotSpeed = 10.0f;
 
-const float shipScale = 50.0f;
+const float shipScale = 40.0f;
 
 void startNewGame();
 void startNewLevel();
 void deleteShot(TShot *s);
-bool ufoColisionCalculation(zoro::Vec2 pos);
-void ufoDeath();
+void addShot(TShot s);
+
 void ScrollbarController(int i, float boxheight, float min_height, float max_height, float width, float xpos);
 
 // -----------------------------------User Data -----------------------------------
@@ -919,6 +946,118 @@ void ChangeUserInAdmin(TUser *newtemp)
   admin_change = tempUser->isAdmin;
 }
 
+// ----------------------------------- Explosions ------------------------------
+
+void addExplosion(TExplosion explosion)
+{
+  TExplosion *p = expList;
+
+  if (p == nullptr)
+  {
+    expList = (TExplosion *)malloc(1 * sizeof(TExplosion));
+    p = expList;
+  }
+  else
+  {
+
+    while (p->next != nullptr)
+    {
+      p = p->next;
+    }
+    p->next = (TExplosion *)malloc(1 * sizeof(TExplosion));
+    p = p->next;
+  }
+
+  p->color = explosion.color;
+  p->numPoints = explosion.numPoints;
+  p->next = nullptr;
+  p->dr_points = (zoro::Vec2 *)malloc(p->numPoints * sizeof(zoro::Vec2));
+  p->pos = explosion.pos;
+  p->startTime = esat::Time();
+  p->speed = (float *)malloc(p->numPoints * sizeof(float));
+  p->magnitude = (float *)malloc(p->numPoints * sizeof(float));
+  p->endTime = explosion.endTime;
+
+  float counter = 1.0f;
+
+  for (int i = 0; i < p->numPoints; i++)
+  {
+    counter += (rand() % (int)((628 / p->numPoints) * 2.0f)) * 0.01f;
+    *(p->dr_points + i) = zoro::NormalizeVec2({cosf(counter), sinf(counter)});
+    *(p->speed + i) = (2 + rand() % 5) * 0.999;
+    *(p->magnitude + i) = 0.0f;
+  }
+}
+
+void paintExplosion()
+{
+  TExplosion *p = expList;
+
+  while (p != nullptr)
+  {
+    for (int i = 0; i < p->numPoints; i++)
+    {
+      *(p->magnitude + i) += *(p->speed + i);
+      *(p->speed + i) *= 0.99f;
+      *(p->dr_points + i) = zoro::ScaleVec2(zoro::NormalizeVec2(*(p->dr_points + i)), *(p->magnitude + i));
+      esat::DrawSetStrokeColor(p->color.r, p->color.g, p->color.b, 255);
+      esat::DrawLine(p->pos.x, p->pos.y, (p->dr_points + i)->x + p->pos.x, (p->dr_points + i)->y + p->pos.y);
+    }
+
+    p = p->next;
+  }
+}
+
+void explosionManager()
+{
+  TExplosion *p = expList;
+  TExplosion *prev = nullptr;
+
+  while (p != nullptr)
+  {
+    if (esat::Time() - p->startTime > p->endTime)
+    {
+      TExplosion *temp = p;
+      if (prev == nullptr)
+      {
+        expList = p->next;
+      }
+      else
+      {
+        prev->next = p->next;
+      }
+
+      p = p->next;
+
+      free(temp->dr_points);
+      free(temp->speed);
+      free(temp->magnitude);
+
+      free(temp);
+    }
+    else
+    {
+      prev = p;
+      p = p->next;
+    }
+  }
+}
+
+void emptyExplosion()
+{
+  TExplosion *s = expList;
+  TExplosion *p = nullptr;
+  while (s != nullptr)
+  {
+    p = s->next;
+    free(s->dr_points);
+    free(s->speed);
+    free(s->magnitude);
+    free(s);
+    s = p;
+  }
+}
+
 // ----------------------------------- Ship -----------------------------------
 
 void initShip(TShip *ship)
@@ -952,29 +1091,60 @@ void initShip(TShip *ship)
 
 void initEnemyShip(TShip *ship)
 {
+
   ship->pos = {400.0f, 400.0f};
   ship->speed = {0.0f, 0.0f};
   ship->acceleration = {0.0f, 0.0f};
   ship->scale = shipScale;
   ship->angle = 0.0f;
-  ship->kNPoints = 15; // important!
+  ship->kNPoints = 13; // important! 15 if anim
   ship->dr_points = (zoro::Vec2 *)malloc(ship->kNPoints * sizeof(zoro::Vec2));
   ship->g_points = (zoro::Vec3 *)malloc(ship->kNPoints * sizeof(zoro::Vec3));
 
   *(ship->g_points + 0) = {+0.8f, +0.15f, 1.0f};
-  *(ship->g_points + 1) = {0.0f, -0.2f, 1.0f};
+  *(ship->g_points + 1) = {0.0f, +0.2f, 1.0f};
   *(ship->g_points + 2) = {-0.6f, +0.85f, 1.0f};
-  *(ship->g_points + 3) = {-0.45f, -0.65f, 1.0f};
-  *(ship->g_points + 4) = {+0.05f, 0.0f, 1.0f};
-  *(ship->g_points + 5) = {+0.6f, +0.15f, 1.0f};
+  *(ship->g_points + 3) = {+0.17f, +0.7f, 1.0f};
+  *(ship->g_points + 4) = {+0.5f, +0.35f, 1.0f};
+  *(ship->g_points + 5) = {-0.75f, +0.5f, 1.0f};
 
-  *(ship->g_points + 6) = {-0.4f, +0.25f, 1.0f};
-  
+  *(ship->g_points + 6) = {-0.5f, +0.0f, 1.0f};
+
+  *(ship->g_points + 7) = {-0.75f, -0.5f, 1.0f};
+  *(ship->g_points + 8) = {+0.5f, -0.35f, 1.0f};
+  *(ship->g_points + 9) = {+0.17f, -0.7f, 1.0f};
+  *(ship->g_points + 10) = {-0.6f, -0.85f, 1.0f};
+  *(ship->g_points + 11) = {0.0f, -0.2f, 1.0f};
+  *(ship->g_points + 12) = {+0.8f, -0.15f, 1.0f};
+
+  /*
   ship->dr_Fuelpoints = (zoro::Vec2 *)malloc(3 * sizeof(zoro::Vec2));
   ship->g_Fuelpoints = (zoro::Vec3 *)malloc(3 * sizeof(zoro::Vec3));
   *(ship->g_Fuelpoints + 0) = {-0.04f, +0.04f, 1.0f};
   *(ship->g_Fuelpoints + 1) = {-0.04f, -0.04f, 1.0f};
   *(ship->g_Fuelpoints + 2) = {-0.8f, +0.0f, 1.0f};
+  */
+}
+
+void initBarriers()
+{
+  barriers = (TBarrier *)malloc(3 * sizeof(TBarrier));
+
+  for (size_t i = 0; i < 3; i++)
+  {
+    (barriers + i)->knPoints = 12;
+    (barriers + i)->dr_points = (zoro::Vec2 *)malloc(barriers->knPoints * sizeof(zoro::Vec2));
+    (barriers + i)->g_points = (zoro::Vec3 *)malloc(barriers->knPoints * sizeof(zoro::Vec3));
+    (barriers + i)->status = (bool *)malloc(barriers->knPoints * sizeof(bool));
+    (barriers + i)->radius = 80 + (i * 33);
+    (barriers + i)->angle = 0.0f;
+
+    for (int j = 0; j < barriers->knPoints; j++)
+    {
+      *((barriers + i)->g_points + j) = {cosf((6.28f / barriers->knPoints) * j), -sinf(((6.28f / barriers->knPoints) * j)), 1.0f};
+      *((barriers + i)->status + j) = true;
+    }
+  }
 }
 
 void paintShip(TShip p_ship)
@@ -993,12 +1163,12 @@ void paintShip(TShip p_ship)
 
   esat::DrawSetStrokeColor(20, 20, 255, 255);
   esat::DrawSetFillColor(20, 20, 20, 20);
-  //esat::DrawSolidPath(&p_ship.dr_points[0].x, 2);
+  // esat::DrawSolidPath(&p_ship.dr_points[0].x, 2);
   for (int j = 0; j < 2; j++)
   {
-    esat::DrawLine(p_ship.dr_points[0+ (j*5)].x, p_ship.dr_points[0 + (j*5)].y, p_ship.dr_points[1+ (j*5)].x, p_ship.dr_points[1+ (j*5)].y);
-    esat::DrawLine(p_ship.dr_points[2 + (j*5)].x, p_ship.dr_points[2 + (j*5)].y, p_ship.dr_points[ 3 + (j*5)].x, p_ship.dr_points[3+ (j*5)].y);
-    esat::DrawLine(p_ship.dr_points[3 + (j*5)].x, p_ship.dr_points[3 + (j*5)].y, p_ship.dr_points[ 4 + (j*5)].x, p_ship.dr_points[4+ (j*5)].y);
+    esat::DrawLine(p_ship.dr_points[0 + (j * 5)].x, p_ship.dr_points[0 + (j * 5)].y, p_ship.dr_points[1 + (j * 5)].x, p_ship.dr_points[1 + (j * 5)].y);
+    esat::DrawLine(p_ship.dr_points[2 + (j * 5)].x, p_ship.dr_points[2 + (j * 5)].y, p_ship.dr_points[3 + (j * 5)].x, p_ship.dr_points[3 + (j * 5)].y);
+    esat::DrawLine(p_ship.dr_points[3 + (j * 5)].x, p_ship.dr_points[3 + (j * 5)].y, p_ship.dr_points[4 + (j * 5)].x, p_ship.dr_points[4 + (j * 5)].y);
   }
 
   // esat::DrawSolidPath(&p_ship.dr_points[2].x, 3);
@@ -1024,6 +1194,70 @@ void paintShip(TShip p_ship)
       *(p_ship.dr_Fuelpoints + i) = {tmp.x, tmp.y};
     }
     esat::DrawSolidPath(&p_ship.dr_Fuelpoints[0].x, 3);
+  }
+}
+
+void enemyShipAI()
+{
+  float angleBetween = zoro::angleBetween(ship.pos, zoro::SumVec2({cosf(enemyShip.angle), sinf(enemyShip.angle)}, enemyShip.pos), enemyShip.pos);
+
+  if (angleBetween != 0)
+  {
+    if (angleBetween < 3.14f)
+    {
+      enemyShip.angle -= 0.012f;
+    }
+    else
+    {
+      enemyShip.angle += 0.012f;
+    }
+  }
+  // const float LastShotTimeRef = 2000.0f;
+  // double LastShotTime = 0.0f;
+  if (esat::Time() - LastShotTime > LastShotTimeRef)
+  {
+    if (rand() % 2 == 1)
+    {
+      LastShotTime += 1000;
+    }
+    else
+    {
+      TShot shot;
+
+      shot.dir.x = cos(enemyShip.angle);
+      shot.dir.y = sin(enemyShip.angle);
+      shot.pos = zoro::SumVec2(enemyShip.pos, zoro::ScaleVec2(shot.dir, enemyShip.scale * 0.5));
+      shot.isEnemy = true;
+      shot.next = nullptr;
+      shot.active = true;
+      shot.cooldown = 0.0f;
+
+      addShot(shot);
+      LastShotTime = esat::Time();
+    }
+  }
+}
+
+void paintEnemyShip(TShip p_ship)
+{
+
+  p_ship.M = zoro::MatIdentity3();
+  p_ship.M = zoro::Mat3Multiply(zoro::Mat3Translate(p_ship.pos), p_ship.M);
+  p_ship.M = zoro::Mat3Multiply(zoro::Mat3Scale(p_ship.scale, p_ship.scale), p_ship.M);
+  p_ship.M = zoro::Mat3Multiply(zoro::Mat3Rotate(p_ship.angle), p_ship.M);
+
+  for (int i = 0; i < p_ship.kNPoints; i++)
+  {
+    zoro::Vec3 tmp = zoro::Mat3TransformVec3(p_ship.M, *(p_ship.g_points + i));
+    *(p_ship.dr_points + i) = {tmp.x, tmp.y};
+  }
+
+  esat::DrawSetStrokeColor(150, 150, 0, 255);
+  esat::DrawSetFillColor(20, 20, 20, 20);
+
+  for (int i = 0; i < p_ship.kNPoints - 1; i++)
+  {
+    esat::DrawLine(p_ship.dr_points[i].x, p_ship.dr_points[i].y, p_ship.dr_points[i + 1].x, p_ship.dr_points[i + 1].y);
   }
 }
 
@@ -1100,7 +1334,6 @@ bool shipPointColision(zoro::Vec2 pos)
 
 void shipColision()
 {
-
   zoro::Vec2 shipPoint;
   zoro::Vec3 gshipPoint;
 
@@ -1121,12 +1354,21 @@ void shipColision()
     *(ship.dr_points + i) = {tmp.x, tmp.y};
   }
 
+  float distance = zoro::MagnitudeVec2(zoro::SubtractVec2(ship.pos, {400, 400}));
+
+  if (distance < 170.0f)
+  {
+    ship.angle = atan2f(ship.pos.y - 400, ship.pos.x - 400);
+    ship.pos = zoro::SumVec2(zoro::ScaleVec2(zoro::NormalizeVec2(zoro::SubtractVec2(ship.pos, {400, 400})), 15), ship.pos);
+    ship.speed = zoro::ScaleVec2(zoro::SubtractVec2(ship.pos, {400, 400}), 0.02);
+  }
+
   // Bullet colision with ship
   while (s != nullptr)
   {
     if (s->isEnemy)
     {
-      if (shipPointColision(s->pos))
+      if (zoro::MagnitudeVec2(zoro::SubtractVec2(ship.pos, s->pos)) < 40)
       {
         deleteShot(s);
         shipDeath();
@@ -1161,15 +1403,6 @@ void shipManager()
     shipColision();
   }
 
-  if (ship.isDying && esat::Time() - ShipDyingAnimTime > ShipDyingAnimTimeRef)
-  {
-    ship.isDying = false;
-    ship.isInvincible = true;
-    InvincibleTime = esat::Time();
-    ship.pos = {400.0f, 400.0f};
-    ship.speed = {0.0f, 0.0f};
-  }
-
   if (ship.isInvincible)
   {
     if (esat::Time() - InvincibleTime > InvincibleTimeRef)
@@ -1191,6 +1424,87 @@ void shipManager()
       paintShip(ship);
     }
   }
+  paintEnemyShip(enemyShip);
+}
+
+// ---------------------------------- Gameplay --------------------------------
+
+void paintBarriers()
+{
+  for (int j = 0; j < 3; j++)
+  {
+    if (j % 2 == 0)
+    {
+      (barriers + j)->angle += 0.02f;
+    }
+    else
+    {
+      (barriers + j)->angle -= 0.02f;
+    }
+
+    zoro::Mat3 m = zoro::MatIdentity3();
+    m = zoro::Mat3Multiply(zoro::Mat3Translate({400.0f, 400.0f}), m);
+    m = zoro::Mat3Multiply(zoro::Mat3Scale((barriers + j)->radius, (barriers + j)->radius), m);
+    m = zoro::Mat3Multiply(zoro::Mat3Rotate((barriers + j)->angle), m);
+
+    for (int i = 0; i < barriers->knPoints; i++)
+    {
+      zoro::Vec3 tmp = zoro::Mat3TransformVec3(m, *((barriers + j)->g_points + i));
+      *((barriers + j)->dr_points + i) = {tmp.x, tmp.y};
+    }
+    switch (j)
+    {
+    case 0:
+      esat::DrawSetStrokeColor(250, 250, 0, 255);
+      break;
+    case 1:
+      esat::DrawSetFillColor(250, 120, 0, 255);
+      esat::DrawSetStrokeColor(250, 120, 0, 255);
+      break;
+    case 2:
+      esat::DrawSetFillColor(250, 0, 0, 255);
+      esat::DrawSetStrokeColor(250, 0, 0, 255);
+      break;
+
+    default:
+      break;
+    }
+
+    for (int i = 0; i < (barriers + j)->knPoints; i++)
+    {
+      if (*((barriers + j)->status + i))
+      {
+        if (i == (barriers + j)->knPoints - 1)
+        {
+          esat::DrawLine((*((barriers + j)->dr_points + i)).x, (*((barriers + j)->dr_points + i)).y, (*((barriers + j)->dr_points + 0)).x, (*((barriers + j)->dr_points + 0)).y);
+        }
+        else
+        {
+          esat::DrawLine((*((barriers + j)->dr_points + i)).x, (*((barriers + j)->dr_points + i)).y, (*((barriers + j)->dr_points + i + 1)).x, (*((barriers + j)->dr_points + i + 1)).y);
+        }
+      }
+    }
+  }
+  bool oneAlive = false;
+  for (int j = 0; j < 3; j++)
+  {
+    oneAlive = false;
+    for (int i = 0; i < (barriers + j)->knPoints; i++)
+    {
+      if (*((barriers + j)->status + i))
+      {
+        oneAlive = true;
+      }
+    }
+    if (!oneAlive)
+    {
+      for (int i = 0; i < (barriers + j)->knPoints; i++)
+      {
+        *((barriers + j)->status + i) = true;
+      }
+      
+    }
+  }
 }
 
 // ----------------------------------- Shots -----------------------------------
@@ -1204,11 +1518,10 @@ void addShot(TShot s)
   newShot->pos = s.pos;
   if (s.isEnemy)
   {
-    newShot->speed = shotSpeed;
+    newShot->speed = shotSpeed / 8;
   }
   else
   {
-    LastShotTime = esat::Time();
     newShot->speed = shotSpeed + zoro::MagnitudeVec2(ship.speed);
   }
 
@@ -1260,38 +1573,162 @@ void deleteShot(TShot *s)
   s = nullptr;
 }
 
+void shotColision(TShot *shot)
+{
+
+  float shotDistance = zoro::MagnitudeVec2(zoro::SubtractVec2(shot->pos, {400.0f, 400.0f}));
+  float angleBetween;
+  int nBarrier;
+  if (shot->isEnemy)
+  {
+    if (shot->active)
+    {
+      if (esat::Time() - shot->cooldown > 200.0f)
+      {
+        for (int i = 0; i < 3; i++)
+        {
+          if (shotDistance < (barriers + i)->radius + 5 && shotDistance > (barriers + i)->radius - 5)
+          {
+            angleBetween = zoro::angleBetween(shot->pos, *(barriers + i)->dr_points, {400.0f, 400.0f});
+            nBarrier = ((angleBetween * 12) / 6.28f);
+            if (*((barriers + i)->status + nBarrier))
+            {
+              shot->barr1 = ((barriers + i)->dr_points + nBarrier);
+
+              zoro::Vec2 *temp;
+
+              if (nBarrier == 11)
+              {
+                shot->barr2 = ((barriers + i)->dr_points + 0);
+              }
+              else
+              {
+                shot->barr2 = ((barriers + i)->dr_points + nBarrier + 1);
+              }
+
+              shot->barrierPos = zoro::MagnitudeVec2(zoro::SubtractVec2(shot->pos, *shot->barr1));
+              shot->active = false;
+              shot->cooldown = esat::Time();
+              return;
+            }
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  if (shotDistance < 45)
+  {
+    // Enemy destroyed
+    endAnim = true;
+    TExplosion explosion;
+    explosion.pos = shot->pos;
+    explosion.endTime = 1000;
+    explosion.numPoints = 30;
+    explosion.color.r = 255;
+    explosion.color.g = 255;
+    explosion.color.b = 0;
+    ship.score += 1440;
+    ship.lives += 1;
+    addExplosion(explosion);
+    deleteShot(shot);
+    return;
+  }
+  else if (shotDistance < 150)
+  {
+    for (int i = 0; i < 3; i++)
+    {
+      if (shotDistance < (barriers + i)->radius + 8 && shotDistance > (barriers + i)->radius - 8)
+      {
+        angleBetween = zoro::angleBetween(shot->pos, *(barriers + i)->dr_points, {400.0f, 400.0f});
+        nBarrier = ((angleBetween * 12) / 6.28f);
+        if (*((barriers + i)->status + nBarrier))
+        {
+          *((barriers + i)->status + nBarrier) = false;
+          TExplosion explosion;
+          switch (i)
+          {
+          case 2:
+            explosion.color.r = 255;
+            explosion.color.g = 0;
+            explosion.color.b = 0;
+            ship.score += 30;
+            break;
+          case 1:
+            explosion.color.r = 255;
+            explosion.color.g = 120;
+            explosion.color.b = 0;
+            ship.score += 20;
+            break;
+          case 0:
+            explosion.color.r = 255;
+            explosion.color.g = 255;
+            explosion.color.b = 0;
+            ship.score += 10;
+            break;
+          default:
+            break;
+          }
+          explosion.pos = shot->pos;
+          explosion.endTime = 130;
+          explosion.numPoints = 12;
+          addExplosion(explosion);
+          deleteShot(shot);
+          return;
+        }
+      }
+    }
+  }
+}
+
 void moveShots()
 {
   TShot *p = shotlist;
 
   while (p != nullptr)
   {
+
     if (p->travelDistance > shotMaxDistance)
     {
-      // printf("Ok ");
-      p->active = false;
       deleteShot(p);
     }
     else
     {
-      p->pos = zoro::SumVec2(p->pos, zoro::ScaleVec2(p->dir, p->speed));
-      p->travelDistance += zoro::MagnitudeVec2(zoro::ScaleVec2(p->dir, p->speed));
+      if (p->active)
+      {
+        p->pos = zoro::SumVec2(p->pos, zoro::ScaleVec2(p->dir, p->speed));
+        p->travelDistance += zoro::MagnitudeVec2(zoro::ScaleVec2(p->dir, p->speed));
+        if (p->isEnemy)
+        {
+          if ((esat::Time() - p->cooldown > 800))
+          {
+            p->dir = zoro::NormalizeVec2(zoro::SumVec2(p->dir, zoro::NormalizeVec2(zoro::SubtractVec2(ship.pos, zoro::SumVec2(p->dir, p->pos)))));
+          }
+        }
+        shotColision(p);
+      }
+      else
+      {
+        if (p->isEnemy)
+        {
 
-      if (p->pos.x > 800)
-      {
-        p->pos.x = 1;
-      }
-      if (p->pos.x < 0)
-      {
-        p->pos.x = 800;
-      }
-      if (p->pos.y > 800)
-      {
-        p->pos.y = 1;
-      }
-      if (p->pos.y < 0)
-      {
-        p->pos.y = 800;
+          p->pos = zoro::SumVec2(*p->barr1, zoro::ScaleVec2(zoro::NormalizeVec2(zoro::SubtractVec2(*p->barr2, *p->barr1)), p->barrierPos));
+          // printf("\n%f ", esat::Time() - p->cooldown);
+          if (esat::Time() - p->cooldown > 1000)
+          {
+            if (rand() % 2 == 0)
+            {
+              p->dir = zoro::NormalizeVec2(zoro::LeftPerpendicularVec2(zoro::SubtractVec2(*p->barr2, *p->barr1)));
+              p->active = true;
+              p->cooldown = esat::Time();
+            }
+            else
+            {
+              p->cooldown += 600.0f;
+            }
+          }
+        }
       }
     }
     p = p->next;
@@ -1305,17 +1742,16 @@ void paintShots()
   while (p != nullptr)
   {
 
-    // DRAW
-    *(sqPoints + 0) = p->pos;
-    *(sqPoints + 1) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)), 3));
-    *(sqPoints + 2) = zoro::SumVec2(*(sqPoints + 1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
-    *(sqPoints + 3) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
-    esat::DrawSetStrokeColor(0, 0, 0, 0);
-    esat::DrawSetFillColor(255, 255, 255, 255);
-    esat::DrawSolidPath(&sqPoints[0].x, 4);
-
     if (!p->isEnemy)
     {
+      // DRAW
+      *(sqPoints + 0) = p->pos;
+      *(sqPoints + 1) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)), 3));
+      *(sqPoints + 2) = zoro::SumVec2(*(sqPoints + 1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
+      *(sqPoints + 3) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
+      esat::DrawSetStrokeColor(0, 0, 0, 0);
+      esat::DrawSetFillColor(0, 0, 255, 255);
+      esat::DrawSolidPath(&sqPoints[0].x, 4);
       for (int i = 1; i < 20; i++)
       {
 
@@ -1326,11 +1762,34 @@ void paintShots()
         *(sqPoints + 3) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
 
         esat::DrawSetStrokeColor(0, 0, 0, 0);
-        esat::DrawSetFillColor(255, 255, 255, 80 - ((80 * i) / 30));
+        esat::DrawSetFillColor(0, 0, 250, 80 - ((80 * i) / 30));
         esat::DrawSolidPath(&sqPoints[0].x, 4);
         if (zoro::MagnitudeVec2(zoro::SubtractVec2(p->pos, ship.pos)) < i + 50)
           i = 21;
       }
+    }
+    else
+    {
+      *(sqPoints + 0) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({0.5, 0.5}), 2 + rand() % 20));
+      *(sqPoints + 3) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({0.5, -0.5}), 5 + rand() % 10));
+      *(sqPoints + 2) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({-0.5, 0.5}), 5 + rand() % 10));
+      *(sqPoints + 1) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({-0.5, -0.5}), 2 + rand() % 20));
+
+      float d = zoro::MagnitudeVec2(zoro::SubtractVec2(p->pos, {400, 400}));
+      if (d > 160.0f)
+      {
+        esat::DrawSetStrokeColor(0, 0, 255, 255);
+      }
+      else if (d < 80.0f)
+      {
+        esat::DrawSetStrokeColor(250, 250, 0, 255);
+      }
+      else
+      {
+        esat::DrawSetStrokeColor(255, ((d - 80) / 80) * -255, 0, 255);
+      }
+      esat::DrawLine(sqPoints->x, sqPoints->y, (sqPoints + 1)->x, (sqPoints + 1)->y);
+      esat::DrawLine((sqPoints + 2)->x, (sqPoints + 2)->y, (sqPoints + 3)->x, (sqPoints + 3)->y);
     }
 
     p = p->next;
@@ -1339,9 +1798,7 @@ void paintShots()
 
 void shotsManager()
 {
-
   moveShots();
-
   paintShots();
 }
 
@@ -1375,6 +1832,27 @@ void paintGUI()
 }
 
 // ----------------------------------- Interface -----------------------------------
+
+void almostShipDeadScreen()
+{
+  esat::DrawSetTextSize(42);
+  esat::DrawSetFillColor(100, 100, 255, 255);
+
+  esat::DrawText(250, 200, "ships left ");
+  itoa(ship.lives, TextBuffer, 10);
+  esat::DrawText(520, 200, TextBuffer);
+  itoa(ship.score, TextBuffer, 10);
+  esat::DrawText(380, 120, TextBuffer);
+
+  if (esat::Time() - ShipDyingAnimTime > ShipDyingAnimTimeRef)
+  {
+    ship.isDying = false;
+    ship.pos = {400.0f, 700.0f};
+    ship.speed = {0.0f, 0.0f};
+    ship.angle = 0;
+    emptyShotList();
+  }
+}
 
 bool checkMouseClick(float minx, float maxx, float miny, float maxy, int mouseType)
 {
@@ -2336,14 +2814,19 @@ void input()
 void startNewLevel()
 {
   emptyShotList();
-
-  ship.pos = {400.0f, 400.0f};
+  ship.pos = {400.0f, 700.0f};
   ship.speed = {0.0f, 0.0f};
   ship.acceleration = {0.0f, 0.0f};
   ship.angle = 0.0f;
-
-  UFOCooldownTime = esat::Time();
-  UFORepositiontTime = esat::Time();
+  for (int i = 0; i < 3; i++)
+  {
+    (barriers + i)->angle = 0.0f;
+    (barriers + i)->radius = 80 + (i * 33);
+    for (int j = 0; j < (barriers)->knPoints; j++)
+    {
+      *((barriers + i)->status + j) = true;
+    }
+  }
 }
 
 void startNewGame()
@@ -2364,7 +2847,7 @@ void CEO()
 
     esat::DrawSetFillColor(255, 255, 255, 255);
     esat::DrawSetTextSize(80);
-    esat::DrawText(190, 200, "star castle");
+    esat::DrawText(140, 200, "star castle");
     esat::DrawSetTextSize(30);
     esat::DrawText(260, 240, "guillermo bosca");
     if (isLogged)
@@ -2386,18 +2869,47 @@ void CEO()
     break;
 
   case LOGIN:
-    // printf("->User:%s\n->Pass: %s\n", user1->nick, user1->pass);
+
     break;
 
   case SIGNUP:
-    // printf("tempuser: %s\ninput: %s\n", tempUser->nick, username_Signup->text);
+
     break;
 
   case INGAME:
+    if (ship.isDying)
+    {
+      almostShipDeadScreen();
+    }
+    else
+    {
+      if (!endAnim)
+      {
+        paintGUI();
+        shotsManager();
+        enemyShipAI();
+        shipManager();
+      }
+      paintBarriers();
+      paintExplosion();
+      explosionManager();
+      if (endAnim)
+      {
+        for (int i = 0; i < 3; i++)
+        {
+          if ((barriers + i)->radius > 0)
+          {
+            (barriers + i)->radius -= 1.5f;
+          }
+          if (i == 2 && (barriers + i)->radius < 2)
+          {
+            endAnim = false;
+            startNewLevel();
+          }
+        }
+      }
+    }
 
-    shotsManager();
-    shipManager();
-    paintGUI();
     break;
 
   case CREDITS:
@@ -2435,14 +2947,14 @@ int esat::main(int argc, char **argv)
 {
   srand(time(NULL));
 
-  esat::WindowInit(800, 800);
+  esat::WindowInit(WINDOW_X, WINDOW_Y);
   WindowSetMouseVisibility(true);
 
   printf("---------------------------------------------------");
 
   initShip(&ship);
   initEnemyShip(&enemyShip);
-
+  initBarriers();
   init();
 
   initEmptyUser(&user1);
