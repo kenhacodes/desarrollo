@@ -173,7 +173,7 @@ TShot *shotlist;
 
 TScoreboard *scoreList = nullptr;
 
-zoro::Vec2 *sqPoints; // Square points
+zoro::Vec2 *g_Square_Points; // Square points
 
 char *TextBuffer = nullptr;
 
@@ -235,8 +235,8 @@ double PaintTime = 0.0f;
 const float LastShotTimeRef = 3000.0f;
 double LastShotTime = 0.0f;
 
-const float MenuCooldownTimeRef = 300.0f;
-double MenuCooldownTime = 0.0f;
+const float kMenuCooldownTimeRef = 300.0f;
+double g_MenuCooldownTime = 0.0f;
 
 const float BackspaceCooldownTimeRef = 80.0f;
 double BackspaceCooldownTime = 0.0f;
@@ -746,14 +746,14 @@ void initScoreboard()
 void paintScore(float y, int score, int order, char *user, char *date)
 {
 
-  *(sqPoints + 0) = {50, y};
-  *(sqPoints + 1) = {740, y};
-  *(sqPoints + 2) = {740, y + 50};
-  *(sqPoints + 3) = {50, y + 50};
+  *(g_Square_Points + 0) = {50, y};
+  *(g_Square_Points + 1) = {740, y};
+  *(g_Square_Points + 2) = {740, y + 50};
+  *(g_Square_Points + 3) = {50, y + 50};
 
   esat::DrawSetStrokeColor(255, 255, 255, 255);
   esat::DrawSetFillColor(255, 255, 255, 15);
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
   esat::DrawSetFillColor(255, 255, 255, 255);
   esat::DrawSetTextSize(30);
@@ -782,13 +782,13 @@ void paintScoreboard()
     score = score->next;
   }
   // Scroll
-  *(sqPoints + 0) = {741, 80};
-  *(sqPoints + 1) = {760, 80};
-  *(sqPoints + 2) = {760, 580};
-  *(sqPoints + 3) = {741, 580};
+  *(g_Square_Points + 0) = {741, 80};
+  *(g_Square_Points + 1) = {760, 80};
+  *(g_Square_Points + 2) = {760, 580};
+  *(g_Square_Points + 3) = {741, 580};
   esat::DrawSetStrokeColor(250, 250, 250, 255);
   esat::DrawSetFillColor(250, 255, 255, 20);
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
   if (i > 10)
   {
@@ -796,18 +796,18 @@ void paintScoreboard()
   }
 
   // Background
-  *(sqPoints + 0) = {0, 0};
-  *(sqPoints + 1) = {800, 0};
-  *(sqPoints + 2) = {800, 79};
-  *(sqPoints + 3) = {0, 79};
+  *(g_Square_Points + 0) = {0, 0};
+  *(g_Square_Points + 1) = {800, 0};
+  *(g_Square_Points + 2) = {800, 79};
+  *(g_Square_Points + 3) = {0, 79};
   esat::DrawSetStrokeColor(0, 0, 0, 255);
   esat::DrawSetFillColor(0, 0, 0, 255);
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
-  *(sqPoints + 0) = {0, 581};
-  *(sqPoints + 1) = {800, 581};
-  *(sqPoints + 2) = {800, 800};
-  *(sqPoints + 3) = {0, 800};
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
+  *(g_Square_Points + 0) = {0, 581};
+  *(g_Square_Points + 1) = {800, 581};
+  *(g_Square_Points + 2) = {800, 800};
+  *(g_Square_Points + 3) = {0, 800};
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 }
 
 bool isTop10HS(int score)
@@ -888,7 +888,7 @@ void init()
 
   popup.text = nullptr;
 
-  sqPoints = (zoro::Vec2 *)malloc(4 * sizeof(zoro::Vec2));
+  g_Square_Points = (zoro::Vec2 *)malloc(4 * sizeof(zoro::Vec2));
 }
 
 void GoToSignUp()
@@ -1745,35 +1745,35 @@ void paintShots()
     if (!p->isEnemy)
     {
       // DRAW
-      *(sqPoints + 0) = p->pos;
-      *(sqPoints + 1) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)), 3));
-      *(sqPoints + 2) = zoro::SumVec2(*(sqPoints + 1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
-      *(sqPoints + 3) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
+      *(g_Square_Points + 0) = p->pos;
+      *(g_Square_Points + 1) = zoro::SumVec2(*(g_Square_Points + 0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)), 3));
+      *(g_Square_Points + 2) = zoro::SumVec2(*(g_Square_Points + 1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
+      *(g_Square_Points + 3) = zoro::SumVec2(*(g_Square_Points + 0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -4));
       esat::DrawSetStrokeColor(0, 0, 0, 0);
       esat::DrawSetFillColor(0, 0, 255, 255);
-      esat::DrawSolidPath(&sqPoints[0].x, 4);
+      esat::DrawSolidPath(&g_Square_Points[0].x, 4);
       for (int i = 1; i < 20; i++)
       {
 
         // DRAW
-        *(sqPoints + 0) = zoro::SubtractVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), 3 * i));
-        *(sqPoints + 1) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)), 3));
-        *(sqPoints + 2) = zoro::SumVec2(*(sqPoints + 1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
-        *(sqPoints + 3) = zoro::SumVec2(*(sqPoints + 0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
+        *(g_Square_Points + 0) = zoro::SubtractVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), 3 * i));
+        *(g_Square_Points + 1) = zoro::SumVec2(*(g_Square_Points + 0), zoro::ScaleVec2(zoro::RightPerpendicularVec2(zoro::NormalizeVec2(p->dir)), 3));
+        *(g_Square_Points + 2) = zoro::SumVec2(*(g_Square_Points + 1), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
+        *(g_Square_Points + 3) = zoro::SumVec2(*(g_Square_Points + 0), zoro::ScaleVec2(zoro::NormalizeVec2(p->dir), -3));
 
         esat::DrawSetStrokeColor(0, 0, 0, 0);
         esat::DrawSetFillColor(0, 0, 250, 80 - ((80 * i) / 30));
-        esat::DrawSolidPath(&sqPoints[0].x, 4);
+        esat::DrawSolidPath(&g_Square_Points[0].x, 4);
         if (zoro::MagnitudeVec2(zoro::SubtractVec2(p->pos, ship.pos)) < i + 50)
           i = 21;
       }
     }
     else
     {
-      *(sqPoints + 0) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({0.5, 0.5}), 2 + rand() % 20));
-      *(sqPoints + 3) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({0.5, -0.5}), 5 + rand() % 10));
-      *(sqPoints + 2) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({-0.5, 0.5}), 5 + rand() % 10));
-      *(sqPoints + 1) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({-0.5, -0.5}), 2 + rand() % 20));
+      *(g_Square_Points + 0) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({0.5, 0.5}), 2 + rand() % 20));
+      *(g_Square_Points + 3) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({0.5, -0.5}), 5 + rand() % 10));
+      *(g_Square_Points + 2) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({-0.5, 0.5}), 5 + rand() % 10));
+      *(g_Square_Points + 1) = zoro::SumVec2(p->pos, zoro::ScaleVec2(zoro::NormalizeVec2({-0.5, -0.5}), 2 + rand() % 20));
 
       float d = zoro::MagnitudeVec2(zoro::SubtractVec2(p->pos, {400, 400}));
       if (d > 160.0f)
@@ -1788,8 +1788,8 @@ void paintShots()
       {
         esat::DrawSetStrokeColor(255, ((d - 80) / 80) * -255, 0, 255);
       }
-      esat::DrawLine(sqPoints->x, sqPoints->y, (sqPoints + 1)->x, (sqPoints + 1)->y);
-      esat::DrawLine((sqPoints + 2)->x, (sqPoints + 2)->y, (sqPoints + 3)->x, (sqPoints + 3)->y);
+      esat::DrawLine(g_Square_Points->x, g_Square_Points->y, (g_Square_Points + 1)->x, (g_Square_Points + 1)->y);
+      esat::DrawLine((g_Square_Points + 2)->x, (g_Square_Points + 2)->y, (g_Square_Points + 3)->x, (g_Square_Points + 3)->y);
     }
 
     p = p->next;
@@ -2288,21 +2288,21 @@ void paintButton(TButton *p)
 {
   zoro::Vec2 finalTextPos;
   float mx, my;
-  *(sqPoints + 0) = p->pos;
-  (*(sqPoints + 0)).x -= p->dimensions.x / 2;
-  (*(sqPoints + 0)).y -= p->dimensions.y / 2;
+  *(g_Square_Points + 0) = p->pos;
+  (*(g_Square_Points + 0)).x -= p->dimensions.x / 2;
+  (*(g_Square_Points + 0)).y -= p->dimensions.y / 2;
 
-  *(sqPoints + 1) = p->pos;
-  (*(sqPoints + 1)).x += p->dimensions.x / 2;
-  (*(sqPoints + 1)).y -= p->dimensions.y / 2;
+  *(g_Square_Points + 1) = p->pos;
+  (*(g_Square_Points + 1)).x += p->dimensions.x / 2;
+  (*(g_Square_Points + 1)).y -= p->dimensions.y / 2;
 
-  *(sqPoints + 2) = p->pos;
-  (*(sqPoints + 2)).x += p->dimensions.x / 2;
-  (*(sqPoints + 2)).y += p->dimensions.y / 2;
+  *(g_Square_Points + 2) = p->pos;
+  (*(g_Square_Points + 2)).x += p->dimensions.x / 2;
+  (*(g_Square_Points + 2)).y += p->dimensions.y / 2;
 
-  *(sqPoints + 3) = p->pos;
-  (*(sqPoints + 3)).x -= p->dimensions.x / 2;
-  (*(sqPoints + 3)).y += p->dimensions.y / 2;
+  *(g_Square_Points + 3) = p->pos;
+  (*(g_Square_Points + 3)).x -= p->dimensions.x / 2;
+  (*(g_Square_Points + 3)).y += p->dimensions.y / 2;
 
   mx = esat::MousePositionX();
   my = esat::MousePositionY();
@@ -2314,8 +2314,8 @@ void paintButton(TButton *p)
     lookingNextButton = false;
   }
 
-  if ((mx <= (*(sqPoints + 1)).x && mx >= (*(sqPoints + 0)).x) &&
-      (my <= (*(sqPoints + 2)).y && my >= (*(sqPoints + 0)).y))
+  if ((mx <= (*(g_Square_Points + 1)).x && mx >= (*(g_Square_Points + 0)).x) &&
+      (my <= (*(g_Square_Points + 2)).y && my >= (*(g_Square_Points + 0)).y))
   {
     if (esat::MouseButtonUp(0))
     {
@@ -2325,16 +2325,16 @@ void paintButton(TButton *p)
         p->focused = true;
         currentFocus = p;
       }
-      else if (esat::Time() - MenuCooldownTime > MenuCooldownTimeRef)
+      else if (esat::Time() - g_MenuCooldownTime > kMenuCooldownTimeRef)
       {
         callButtonFunction(p->idFunction);
-        MenuCooldownTime = esat::Time();
+        g_MenuCooldownTime = esat::Time();
       }
     }
 
     esat::DrawSetFillColor(255, 255, 255, 255);
     esat::DrawSetStrokeColor(255, 255, 255, 255);
-    esat::DrawSolidPath(&sqPoints[0].x, 4);
+    esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
     esat::DrawSetFillColor(0, 0, 0, 255);
   }
@@ -2345,7 +2345,7 @@ void paintButton(TButton *p)
     {
       esat::DrawSetFillColor(255, 255, 255, 200);
       esat::DrawSetStrokeColor(255, 255, 255, 255);
-      esat::DrawSolidPath(&sqPoints[0].x, 4);
+      esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
       esat::DrawSetFillColor(0, 0, 0, 255);
     }
@@ -2353,7 +2353,7 @@ void paintButton(TButton *p)
     {
       esat::DrawSetFillColor(255, 255, 255, 10);
       esat::DrawSetStrokeColor(255, 255, 255, 255);
-      esat::DrawSolidPath(&sqPoints[0].x, 4);
+      esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
       esat::DrawSetFillColor(255, 255, 255, 255);
     }
@@ -2429,24 +2429,24 @@ void ScrollbarController(int i, float boxheight, float min_height, float max_hei
 
   float scrollerOffsethandle = (scrollOffset * scrollRange) / contentSize;
 
-  *(sqPoints + 0) = {xpos, min_height - scrollerOffsethandle};
-  *(sqPoints + 1) = {xpos + width, min_height - scrollerOffsethandle};
-  *(sqPoints + 2) = {xpos + width, min_height + scrollerHeight - scrollerOffsethandle};
-  *(sqPoints + 3) = {xpos, min_height + scrollerHeight - scrollerOffsethandle};
+  *(g_Square_Points + 0) = {xpos, min_height - scrollerOffsethandle};
+  *(g_Square_Points + 1) = {xpos + width, min_height - scrollerOffsethandle};
+  *(g_Square_Points + 2) = {xpos + width, min_height + scrollerHeight - scrollerOffsethandle};
+  *(g_Square_Points + 3) = {xpos, min_height + scrollerHeight - scrollerOffsethandle};
 
   esat::DrawSetStrokeColor(250, 250, 250, 255);
   esat::DrawSetFillColor(250, 250, 250, 180);
   if (mouseIsDown)
     esat::DrawSetFillColor(210, 210, 250, 180);
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 }
 
 void PaintUser(float y, TUserList *pUser, bool selected)
 {
-  *(sqPoints + 0) = {5, y};
-  *(sqPoints + 1) = {270, y};
-  *(sqPoints + 2) = {270, y + 40};
-  *(sqPoints + 3) = {5, y + 40};
+  *(g_Square_Points + 0) = {5, y};
+  *(g_Square_Points + 1) = {270, y};
+  *(g_Square_Points + 2) = {270, y + 40};
+  *(g_Square_Points + 3) = {5, y + 40};
 
   esat::DrawSetStrokeColor(255, 255, 255, 255);
   esat::DrawSetFillColor(255, 255, 255, 15);
@@ -2460,7 +2460,7 @@ void PaintUser(float y, TUserList *pUser, bool selected)
   if (selected)
     esat::DrawSetFillColor(255, 255, 255, 250);
 
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
   esat::DrawSetFillColor(255, 255, 255, 255);
 
@@ -2491,14 +2491,14 @@ void AdminUserScrollManager()
   }
 
   // Scrollbar square
-  (*(sqPoints + 0)) = {270, 10};
-  (*(sqPoints + 1)) = {285, 10};
-  (*(sqPoints + 2)) = {285, 620};
-  (*(sqPoints + 3)) = {270, 620};
+  (*(g_Square_Points + 0)) = {270, 10};
+  (*(g_Square_Points + 1)) = {285, 10};
+  (*(g_Square_Points + 2)) = {285, 620};
+  (*(g_Square_Points + 3)) = {270, 620};
 
   esat::DrawSetFillColor(255, 255, 255, 0);
   esat::DrawSetStrokeColor(255, 255, 255, 255);
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
   if (i > 15)
   {
@@ -2510,19 +2510,19 @@ void AdminUserScrollManager()
     esat::DrawSetFillColor(0, 0, 0, 255);
     esat::DrawSetStrokeColor(255, 255, 255, 0);
 
-    (*(sqPoints + 0)) = {0, 621};
-    (*(sqPoints + 1)) = {290, 621};
-    (*(sqPoints + 2)) = {290, 800};
-    (*(sqPoints + 3)) = {0, 800};
+    (*(g_Square_Points + 0)) = {0, 621};
+    (*(g_Square_Points + 1)) = {290, 621};
+    (*(g_Square_Points + 2)) = {290, 800};
+    (*(g_Square_Points + 3)) = {0, 800};
 
-    esat::DrawSolidPath(&sqPoints[0].x, 4);
+    esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
-    (*(sqPoints + 0)) = {0, 0};
-    (*(sqPoints + 1)) = {290, 0};
-    (*(sqPoints + 2)) = {290, 9};
-    (*(sqPoints + 3)) = {0, 9};
+    (*(g_Square_Points + 0)) = {0, 0};
+    (*(g_Square_Points + 1)) = {290, 0};
+    (*(g_Square_Points + 2)) = {290, 9};
+    (*(g_Square_Points + 3)) = {0, 9};
 
-    esat::DrawSolidPath(&sqPoints[0].x, 4);
+    esat::DrawSolidPath(&g_Square_Points[0].x, 4);
   }
 }
 
@@ -2551,17 +2551,17 @@ void paintAdmin()
   esat::DrawSetStrokeColor(255, 255, 255, 255);
 
   // IS ADMIN CHECKBOX
-  (*(sqPoints + 0)) = {5, 630};
-  (*(sqPoints + 1)) = {285, 630};
-  (*(sqPoints + 2)) = {285, 670};
-  (*(sqPoints + 3)) = {5, 670};
+  (*(g_Square_Points + 0)) = {5, 630};
+  (*(g_Square_Points + 1)) = {285, 630};
+  (*(g_Square_Points + 2)) = {285, 670};
+  (*(g_Square_Points + 3)) = {5, 670};
 
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
-  (*(sqPoints + 0)) = {245, 635};
-  (*(sqPoints + 1)) = {280, 635};
-  (*(sqPoints + 2)) = {280, 665};
-  (*(sqPoints + 3)) = {245, 665};
+  (*(g_Square_Points + 0)) = {245, 635};
+  (*(g_Square_Points + 1)) = {280, 635};
+  (*(g_Square_Points + 2)) = {280, 665};
+  (*(g_Square_Points + 3)) = {245, 665};
 
   if (checkMouseClick(245, 280, 635, 665, -1))
   {
@@ -2574,7 +2574,7 @@ void paintAdmin()
     }
   }
 
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
   esat::DrawSetStrokeColor(255, 255, 255, 255);
   if (tempUser->isAdmin)
   {
@@ -2658,10 +2658,10 @@ void paintPopup()
 
     xpos = start + (end - start) * t;
 
-    *(sqPoints + 0) = {xpos, 50};
-    *(sqPoints + 1) = {xpos, 100};
-    *(sqPoints + 2) = {xpos + widthText + 10, 100};
-    *(sqPoints + 3) = {xpos + widthText + 10, 50};
+    *(g_Square_Points + 0) = {xpos, 50};
+    *(g_Square_Points + 1) = {xpos, 100};
+    *(g_Square_Points + 2) = {xpos + widthText + 10, 100};
+    *(g_Square_Points + 3) = {xpos + widthText + 10, 50};
   }
   else if (popup.isOutering)
   {
@@ -2678,10 +2678,10 @@ void paintPopup()
 
     xpos = start + (end - start) * t;
 
-    *(sqPoints + 0) = {xpos, 50};
-    *(sqPoints + 1) = {xpos, 100};
-    *(sqPoints + 2) = {xpos + widthText + 10, 100};
-    *(sqPoints + 3) = {xpos + widthText + 10, 50};
+    *(g_Square_Points + 0) = {xpos, 50};
+    *(g_Square_Points + 1) = {xpos, 100};
+    *(g_Square_Points + 2) = {xpos + widthText + 10, 100};
+    *(g_Square_Points + 3) = {xpos + widthText + 10, 50};
   }
   else
   {
@@ -2694,15 +2694,15 @@ void paintPopup()
 
     xpos = 801 - widthText;
 
-    *(sqPoints + 0) = {xpos, 50};
-    *(sqPoints + 1) = {xpos, 100};
-    *(sqPoints + 2) = {800, 100};
-    *(sqPoints + 3) = {800, 50};
+    *(g_Square_Points + 0) = {xpos, 50};
+    *(g_Square_Points + 1) = {xpos, 100};
+    *(g_Square_Points + 2) = {800, 100};
+    *(g_Square_Points + 3) = {800, 50};
   }
 
   esat::DrawSetStrokeColor(255, 255, 255, 255);
   esat::DrawSetFillColor(255, 255, 255, 250);
-  esat::DrawSolidPath(&sqPoints[0].x, 4);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
 
   esat::DrawSetTextSize(25);
   esat::DrawSetFillColor(0, 0, 0, 255);
