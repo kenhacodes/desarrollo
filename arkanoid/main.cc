@@ -28,11 +28,11 @@ struct TButton
   char *text;
   char *label;
   TButton *next;
-  WindowState windowContext; 
-  int idFunction;            
-  int fontSize;              
-  zoro::Vec2 pos;            
-  zoro::Vec2 dimensions;     
+  WindowState windowContext;
+  int idFunction;
+  int fontSize;
+  zoro::Vec2 pos;
+  zoro::Vec2 dimensions;
 };
 
 struct TBrick
@@ -85,7 +85,6 @@ struct TScrollbar
   float width;
   float xpos;
   float scrollOffset;
-  
 };
 
 WindowState g_Window_State = EDITOR;
@@ -97,6 +96,7 @@ TLevel *g_Current_Level = nullptr;
 
 bool g_mouseIsDown = false;
 zoro::Vec2 g_mouseDownPos;
+TBrick *g_Brick_selected = nullptr;
 
 zoro::Vec2 *g_Square_Points = nullptr;
 
@@ -111,7 +111,7 @@ TPlayer kDefault_Player;
 const float kwidth = 1000.0f;
 const float kheight = 1000.0f;
 
-TColor kbackgroundWindow = {(char)10, (char)30, (char)40, (char)255};
+TColor kDefaultBackground = {(char)10, (char)30, (char)40, (char)255};
 
 unsigned char fps = 60; // Frames per second
 double current_time, last_time;
@@ -149,6 +149,44 @@ bool checkMouseClick(float minx, float maxx, float miny, float maxy, int mouseTy
 
   return false;
 }
+void PaintSquareToBox(zoro::Vec2 pos, zoro::Vec2 size, TColor border, TColor background, zoro::Vec2 BoxPos, zoro::Vec2 BoxSize)
+{
+
+  zoro::Vec2 GlobalBoundingBox_min = {BoxPos.x - (BoxSize.x / 2), BoxPos.y - (BoxSize.y / 2)};
+  zoro::Vec2 GlobalBoundingBox_max = {BoxPos.x + (BoxSize.x / 2), BoxPos.y + (BoxSize.y / 2)};
+
+  *(g_Square_Points + 0) = pos;
+  (*(g_Square_Points + 0)).x -= size.x / 2;
+  (*(g_Square_Points + 0)).y -= size.y / 2;
+
+  *(g_Square_Points + 0) = zoro::CoordGlobalToLocalVec2(*(g_Square_Points + 0), {0, 0}, {kwidth, kheight});
+  *(g_Square_Points + 0) = zoro::CoordLocalToGlobalVec2(*(g_Square_Points + 0), {GlobalBoundingBox_min}, GlobalBoundingBox_max);
+
+  *(g_Square_Points + 1) = pos;
+  (*(g_Square_Points + 1)).x += size.x / 2;
+  (*(g_Square_Points + 1)).y -= size.y / 2;
+
+  *(g_Square_Points + 1) = zoro::CoordGlobalToLocalVec2(*(g_Square_Points + 1), {0, 0}, {kwidth, kheight});
+  *(g_Square_Points + 1) = zoro::CoordLocalToGlobalVec2(*(g_Square_Points + 1), GlobalBoundingBox_min, GlobalBoundingBox_max);
+
+  *(g_Square_Points + 2) = pos;
+  (*(g_Square_Points + 2)).x += size.x / 2;
+  (*(g_Square_Points + 2)).y += size.y / 2;
+
+  *(g_Square_Points + 2) = zoro::CoordGlobalToLocalVec2(*(g_Square_Points + 2), {0, 0}, {kwidth, kheight});
+  *(g_Square_Points + 2) = zoro::CoordLocalToGlobalVec2(*(g_Square_Points + 2), GlobalBoundingBox_min, GlobalBoundingBox_max);
+
+  *(g_Square_Points + 3) = pos;
+  (*(g_Square_Points + 3)).x -= size.x / 2;
+  (*(g_Square_Points + 3)).y += size.y / 2;
+
+  *(g_Square_Points + 3) = zoro::CoordGlobalToLocalVec2(*(g_Square_Points + 3), {0, 0}, {kwidth, kheight});
+  *(g_Square_Points + 3) = zoro::CoordLocalToGlobalVec2(*(g_Square_Points + 3), GlobalBoundingBox_min, GlobalBoundingBox_max);
+
+  esat::DrawSetFillColor(background.r, background.g, background.b, background.o);
+  esat::DrawSetStrokeColor(border.r, border.g, border.b, border.o);
+  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
+}
 void PaintSquare(zoro::Vec2 pos, zoro::Vec2 size, TColor border, TColor background)
 {
   *(g_Square_Points + 0) = pos;
@@ -174,13 +212,32 @@ void PaintSquare(zoro::Vec2 pos, zoro::Vec2 size, TColor border, TColor backgrou
 void PaintPlayer()
 {
 }
+void newBrick(TBrick **brickList, zoro::Vec2 pos)
+{
+
+  TBrick *nBrick = (TBrick *)malloc(sizeof(TBrick));
+
+  nBrick->active = true;
+  nBrick->color = {(char)200, (char)200, (char)200, (char)200};
+  nBrick->lives = 1;
+  nBrick->pos = pos;
+  nBrick->reward = 10;
+  nBrick->size = {150, 50};
+
+  nBrick->next = *brickList;
+  *brickList = nBrick;
+
+  printf("New brick\n");
+}
+
 void newEmptyLevel()
 {
   TLevel *p = (TLevel *)malloc(sizeof(TLevel));
   p->difficulty = countNumberOfLevels();
   p->bricks = nullptr;
+  newBrick(&p->bricks, {400, 400});
   p->player = kDefault_Player;
-  p->background = kbackgroundWindow;
+  p->background = kDefaultBackground;
   p->next = g_Level_List;
   g_Level_List = p;
   g_scrollbar_EDITOR->quantity = countNumberOfLevels();
@@ -294,6 +351,27 @@ void PaintInterface()
     p = p->next;
   }
 }
+void PaintLevel(TLevel *level, zoro::Vec2 origin, zoro::Vec2 size)
+{
+
+  if (level == nullptr)
+  {
+    printf("Error level not found.");
+    return;
+  }
+
+  if (level->bricks != nullptr)
+  {
+    TBrick *b = level->bricks;
+    while (b != nullptr)
+    {
+
+      PaintSquareToBox(b->pos, b->size, {(char)255, (char)255, (char)255, (char)255}, b->color, origin, size);
+
+      b = b->next;
+    }
+  }
+}
 
 void ScrollbarController(TScrollbar *scrollbar)
 {
@@ -355,32 +433,64 @@ void ScrollbarController(TScrollbar *scrollbar)
 void Editor_UI()
 {
   // Scrollbar
+  TLevel *p = g_Level_List;
   for (int i = 0; i < g_scrollbar_EDITOR->quantity; i++)
   {
-    PaintSquare({895, 93 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset) + (i*g_scrollbar_EDITOR->margin)}, {160, 160}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
-    if (checkMouseClick(810, 970, (13 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset))+ (i*g_scrollbar_EDITOR->margin), (173 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset))+ (i*g_scrollbar_EDITOR->margin), 0))
+    PaintSquare({895, 93 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset) + (i * g_scrollbar_EDITOR->margin)}, {160, 160}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
+    PaintLevel(p, {895, 93 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset) + (i * g_scrollbar_EDITOR->margin)}, {160, 160});
+
+    if (checkMouseClick(810, 970, (13 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset)) + (i * g_scrollbar_EDITOR->margin), (173 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset)) + (i * g_scrollbar_EDITOR->margin), 0))
     {
-      TLevel *p = g_Level_List;
-      for (int j = 0; j < i; j++)
-        p = p->next;
-      printf("\n%d", p->difficulty);  
+      printf("\n%d", p->difficulty);
       g_Current_Level = p;
     }
+    p = p->next;
   }
-  PaintSquare({900, 5}, {200, 10}, kbackgroundWindow, kbackgroundWindow);
-  PaintSquare({900, 985}, {200, 100}, kbackgroundWindow, kbackgroundWindow);
+  PaintSquare({900, 5}, {200, 10}, kDefaultBackground, kDefaultBackground);
+  PaintSquare({900, 985}, {200, 100}, kDefaultBackground, kDefaultBackground);
 
   PaintSquare({500, 475}, {990, 940}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
   ScrollbarController(g_scrollbar_EDITOR);
 
-  PaintSquare({410,410},{800,800},  {(char)255, (char)255, (char)255, (char)255}, kbackgroundWindow);
+  PaintSquare({410, 410}, {800, 800}, {(char)255, (char)255, (char)255, (char)255}, kDefaultBackground);
 
   if (g_Current_Level != nullptr)
   {
-    
-  }
-  
+    zoro::Vec2 GlobalBoundingBox_min = {10, 10};
+    zoro::Vec2 GlobalBoundingBox_max = {810, 810};
+    if (esat::MouseButtonUp(1))
+    {
+      g_mouseIsDown = false;
+      g_Brick_selected = nullptr;
+    }
+    if (g_Brick_selected != nullptr)
+    {
+      g_Brick_selected->pos = zoro::CoordGlobalToLocalVec2({(float)esat::MousePositionX(), (float)esat::MousePositionY()}, GlobalBoundingBox_min, GlobalBoundingBox_max);
+    }
 
+    PaintLevel(g_Current_Level, {410, 410}, {800, 800});
+    if (g_Current_Level->bricks != nullptr)
+    {
+      zoro::Vec2 brickPosGlobalmin;
+      zoro::Vec2 brickPosGlobalmax;
+      TBrick *p = g_Current_Level->bricks;
+      while (p != nullptr)
+      {
+        brickPosGlobalmin = zoro::CoordGlobalToLocalVec2({p->pos.x - (p->size.x / 2), p->pos.y - (p->size.y / 2)},{0,0}, {kwidth,kheight});
+        brickPosGlobalmax = zoro::CoordGlobalToLocalVec2({p->pos.x + (p->size.x / 2), p->pos.y + (p->size.y / 2)},GlobalBoundingBox_min, GlobalBoundingBox_max);
+        
+        zoro::PrintVec2(brickPosGlobalmin);
+        if (checkMouseClick(brickPosGlobalmin.x,brickPosGlobalmax.x,brickPosGlobalmin.y,brickPosGlobalmax.y, 1))
+        {
+          printf("selected");
+          g_Brick_selected = p;
+          g_mouseIsDown = true;
+          g_mouseDownPos = zoro::CoordGlobalToLocalVec2({(float)esat::MousePositionX(), (float)esat::MousePositionY()}, GlobalBoundingBox_min, GlobalBoundingBox_max);
+        }
+        p = p->next;
+      }
+    }
+  }
 }
 void MenuWindow()
 {
@@ -447,8 +557,8 @@ void init_UI()
   new_button.dimensions = {200, 40};
   addButtonToList(new_button);
   new_button.fontSize = 40;
-
   */
+
   new_button.fontSize = 25;
 
   new_button.text = "ADD LEVEL";
@@ -485,11 +595,11 @@ void init_Game()
   g_Square_Points = (zoro::Vec2 *)malloc(4 * sizeof(zoro::Vec2));
 
   kDefault_Player.ball = nullptr;
-  kDefault_Player.color = {(char) 255, (char) 255, (char) 255, (char) 255};
+  kDefault_Player.color = {(char)255, (char)255, (char)255, (char)255};
   kDefault_Player.lives = 1;
   kDefault_Player.pos = {500, 850};
   kDefault_Player.score = 0;
-  kDefault_Player.size = { 200, 80 };
+  kDefault_Player.size = {200, 80};
 
   init_UI();
 }
@@ -509,7 +619,7 @@ int esat::main(int argc, char **argv)
 
     last_time = esat::Time();
     esat::DrawBegin();
-    esat::DrawClear(kbackgroundWindow.r, kbackgroundWindow.g, kbackgroundWindow.b);
+    esat::DrawClear(kDefaultBackground.r, kDefaultBackground.g, kDefaultBackground.b);
 
     // --------------
 
