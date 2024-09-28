@@ -25,14 +25,14 @@ struct TColor
 
 struct TButton
 {
-  int idFunction;
-  int fontSize;
-  zoro::Vec2 pos;
-  zoro::Vec2 dimensions;
-  WindowState windowContext;
   char *text;
   char *label;
   TButton *next;
+  WindowState windowContext; 
+  int idFunction;            
+  int fontSize;              
+  zoro::Vec2 pos;            
+  zoro::Vec2 dimensions;     
 };
 
 struct TBrick
@@ -43,10 +43,12 @@ struct TBrick
   TColor color;
   int lives;
   int reward;
+  bool active;
 };
 
 struct TBall
 {
+  bool onPlayer;
   zoro::Vec2 pos;
   zoro::Vec2 dir;
   float size;
@@ -76,12 +78,14 @@ struct TLevel
 struct TScrollbar
 {
   int quantity;
+  int margin;
   float boxheight;
   float min_height;
   float max_height;
   float width;
   float xpos;
   float scrollOffset;
+  
 };
 
 WindowState g_Window_State = EDITOR;
@@ -102,13 +106,18 @@ TScrollbar g_scrollbar_LEVELSELECTOR;
 const float kMenuCooldownTimeRef = 300.0f;
 double g_MenuCooldownTime = 0.0f;
 
-float kwidth = 1000.0f;
-float kheight = 1000.0f;
+TPlayer kDefault_Player;
+
+const float kwidth = 1000.0f;
+const float kheight = 1000.0f;
+
+TColor kbackgroundWindow = {(char)10, (char)30, (char)40, (char)255};
 
 unsigned char fps = 60; // Frames per second
 double current_time, last_time;
 
-int countNumberOfLevels(){
+int countNumberOfLevels()
+{
   TLevel *p = g_Level_List;
   int i = 0;
   while (p != nullptr)
@@ -116,7 +125,7 @@ int countNumberOfLevels(){
     i++;
     p = p->next;
   }
-  
+
   return i;
 }
 void goto_EDITOR()
@@ -167,27 +176,17 @@ void PaintPlayer()
 }
 void newEmptyLevel()
 {
-
-  TLevel *p = g_Level_List;
-
-  if (p == nullptr)
-  {
-    p = (TLevel *)malloc(1 * sizeof(TLevel));
-  }
-  else
-  {
-    while (p->next != nullptr)
-    {
-      p = p->next;
-    }
-    p->next = (TLevel *)malloc(1 * sizeof(TLevel));
-    p = p->next;
-  }
- 
-  p->next = nullptr;
+  TLevel *p = (TLevel *)malloc(sizeof(TLevel));
+  p->difficulty = countNumberOfLevels();
+  p->bricks = nullptr;
+  p->player = kDefault_Player;
+  p->background = kbackgroundWindow;
+  p->next = g_Level_List;
+  g_Level_List = p;
   g_scrollbar_EDITOR->quantity = countNumberOfLevels();
   printf("New level %d\n", g_scrollbar_EDITOR->quantity);
 }
+
 void callButtonFunction(int id)
 {
   switch (id)
@@ -298,10 +297,8 @@ void PaintInterface()
 
 void ScrollbarController(TScrollbar *scrollbar)
 {
-  // i * 50 = altura total scorelist
-  // 500 = altura max scroller
   float scrollRange = scrollbar->max_height - scrollbar->min_height;
-  float contentSize = (scrollbar->quantity * scrollbar->boxheight);
+  float contentSize = (scrollbar->quantity * (scrollbar->boxheight + scrollbar->margin));
 
   float scrollerHeight = scrollRange * (scrollRange / contentSize);
 
@@ -316,11 +313,11 @@ void ScrollbarController(TScrollbar *scrollbar)
 
   if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Down))
   {
-    scrollbar->scrollOffset -= 14;
+    scrollbar->scrollOffset -= 10 + (scrollbar->quantity * 2);
   }
   else if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Up))
   {
-    scrollbar->scrollOffset += 14;
+    scrollbar->scrollOffset += 10 + (scrollbar->quantity * 2);
   }
 
   if (g_mouseIsDown)
@@ -345,22 +342,45 @@ void ScrollbarController(TScrollbar *scrollbar)
   *(g_Square_Points + 2) = {scrollbar->xpos + scrollbar->width, scrollbar->min_height + scrollerHeight - scrollerOffsethandle};
   *(g_Square_Points + 3) = {scrollbar->xpos, scrollbar->min_height + scrollerHeight - scrollerOffsethandle};
 
-  esat::DrawSetStrokeColor(250, 250, 250, 255);
-  esat::DrawSetFillColor(250, 250, 250, 180);
-  if (g_mouseIsDown)
-    esat::DrawSetFillColor(210, 210, 250, 180);
-  esat::DrawSolidPath(&g_Square_Points[0].x, 4);
+  if (scrollRange < scrollbar->quantity * scrollbar->boxheight)
+  {
+    esat::DrawSetStrokeColor(250, 250, 250, 255);
+    esat::DrawSetFillColor(250, 250, 250, 180);
+    if (g_mouseIsDown)
+      esat::DrawSetFillColor(210, 210, 250, 180);
+    esat::DrawSolidPath(&g_Square_Points[0].x, 4);
+  }
 }
 
 void Editor_UI()
 {
+  // Scrollbar
   for (int i = 0; i < g_scrollbar_EDITOR->quantity; i++)
   {
-    PaintSquare({890, 93 + g_scrollbar_EDITOR->scrollOffset}, {160, 160}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
+    PaintSquare({895, 93 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset) + (i*g_scrollbar_EDITOR->margin)}, {160, 160}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
+    if (checkMouseClick(810, 970, (13 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset))+ (i*g_scrollbar_EDITOR->margin), (173 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset))+ (i*g_scrollbar_EDITOR->margin), 0))
+    {
+      TLevel *p = g_Level_List;
+      for (int j = 0; j < i; j++)
+        p = p->next;
+      printf("\n%d", p->difficulty);  
+      g_Current_Level = p;
+    }
   }
+  PaintSquare({900, 5}, {200, 10}, kbackgroundWindow, kbackgroundWindow);
+  PaintSquare({900, 985}, {200, 100}, kbackgroundWindow, kbackgroundWindow);
 
-  PaintSquare({500, 460}, {990, 900}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
+  PaintSquare({500, 475}, {990, 940}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
   ScrollbarController(g_scrollbar_EDITOR);
+
+  PaintSquare({410,410},{800,800},  {(char)255, (char)255, (char)255, (char)255}, kbackgroundWindow);
+
+  if (g_Current_Level != nullptr)
+  {
+    
+  }
+  
+
 }
 void MenuWindow()
 {
@@ -433,14 +453,14 @@ void init_UI()
 
   new_button.text = "ADD LEVEL";
   new_button.idFunction = 4;
-  new_button.pos = {140, 950};
+  new_button.pos = {130, 975};
   new_button.windowContext = EDITOR;
   new_button.dimensions = {250, 40};
   addButtonToList(new_button);
 
   new_button.text = "BACK TO MENU";
   new_button.idFunction = 3;
-  new_button.pos = {860, 950};
+  new_button.pos = {870, 975};
   new_button.windowContext = LEVELSELECTOR;
   new_button.dimensions = {250, 40};
   addButtonToList(new_button);
@@ -451,17 +471,25 @@ void init_UI()
   g_scrollbar_EDITOR = (TScrollbar *)malloc(1 * sizeof(TScrollbar));
 
   g_scrollbar_EDITOR->boxheight = 160;
-  g_scrollbar_EDITOR->max_height = 909;
+  g_scrollbar_EDITOR->max_height = 935;
   g_scrollbar_EDITOR->min_height = 12;
-  g_scrollbar_EDITOR->quantity = 15;
+  g_scrollbar_EDITOR->quantity = 0;
   g_scrollbar_EDITOR->scrollOffset = 0;
-  g_scrollbar_EDITOR->width = 20;
-  g_scrollbar_EDITOR->xpos = 973;
+  g_scrollbar_EDITOR->width = 13;
+  g_scrollbar_EDITOR->xpos = 975;
+  g_scrollbar_EDITOR->margin = 3;
 }
 
 void init_Game()
 {
   g_Square_Points = (zoro::Vec2 *)malloc(4 * sizeof(zoro::Vec2));
+
+  kDefault_Player.ball = nullptr;
+  kDefault_Player.color = {(char) 255, (char) 255, (char) 255, (char) 255};
+  kDefault_Player.lives = 1;
+  kDefault_Player.pos = {500, 850};
+  kDefault_Player.score = 0;
+  kDefault_Player.size = { 200, 80 };
 
   init_UI();
 }
@@ -475,12 +503,13 @@ int esat::main(int argc, char **argv)
 
   init_Game();
   printf("PROGRAM START");
+
   while (esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape))
   {
 
     last_time = esat::Time();
     esat::DrawBegin();
-    esat::DrawClear(10, 30, 40);
+    esat::DrawClear(kbackgroundWindow.r, kbackgroundWindow.g, kbackgroundWindow.b);
 
     // --------------
 
