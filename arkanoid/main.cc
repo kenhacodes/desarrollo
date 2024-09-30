@@ -48,22 +48,26 @@ struct TBrick
 
 struct TBall
 {
+  int knPoints = 16;
   bool onPlayer;
   zoro::Vec2 pos;
   zoro::Vec2 dir;
   float size;
   float speed;
+  zoro::Vec3 g_points[16];
+  zoro::Vec2 dr_points[16];
   TBall *next;
 };
 
 struct TPlayer
 {
+  int score;
+  int lives;
+  float velocity;
   zoro::Vec2 pos;
   zoro::Vec2 size;
   TColor color;
   TBall *ball;
-  int score;
-  int lives;
 };
 
 struct TLevel
@@ -79,6 +83,7 @@ struct TScrollbar
 {
   int quantity;
   int margin;
+  int columns;
   float boxheight;
   float min_height;
   float max_height;
@@ -93,15 +98,18 @@ TButton *g_InterfaceList = nullptr;
 
 TLevel *g_Level_List = nullptr;
 TLevel *g_Current_Level = nullptr;
+TLevel g_inGameLevel;
 
 bool g_mouseIsDown = false;
+bool g_scrollIsSelected = false;
 zoro::Vec2 g_mouseDownPos;
 TBrick *g_Brick_selected = nullptr;
+TBrick *g_BrickLastSelected = nullptr;
 
 zoro::Vec2 *g_Square_Points = nullptr;
 
 TScrollbar *g_scrollbar_EDITOR;
-TScrollbar g_scrollbar_LEVELSELECTOR;
+TScrollbar *g_scrollbar_LEVELSELECTOR;
 
 const float kMenuCooldownTimeRef = 300.0f;
 double g_MenuCooldownTime = 0.0f;
@@ -149,6 +157,67 @@ bool checkMouseClick(float minx, float maxx, float miny, float maxy, int mouseTy
 
   return false;
 }
+bool checkMouseClickOnLocalCoordinates(zoro::Vec2 TargetPos, zoro::Vec2 TargetSize, int mouseType, zoro::Vec2 LocalBoxPos, zoro::Vec2 LocalBoxSize)
+{
+  /*
+    Target in local coordinates and the local box size
+  */
+
+  zoro::Vec2 min = zoro::CoordGlobalToLocalVec2({TargetPos.x - (TargetSize.x / 2), TargetPos.y - (TargetSize.y / 2)}, {0, 0}, {kwidth, kheight});
+  min = zoro::CoordLocalToGlobalVec2(min,
+                                     {LocalBoxPos.x - (LocalBoxSize.x / 2), LocalBoxPos.y - (LocalBoxSize.y / 2)},
+                                     {LocalBoxPos.x + (LocalBoxSize.x / 2), LocalBoxPos.y + (LocalBoxSize.y / 2)});
+
+  zoro::Vec2 max = zoro::CoordGlobalToLocalVec2({TargetPos.x + (TargetSize.x / 2), TargetPos.y + (TargetSize.y / 2)}, {0, 0}, {kwidth, kheight});
+  max = zoro::CoordLocalToGlobalVec2(max,
+                                     {LocalBoxPos.x - (LocalBoxSize.x / 2), LocalBoxPos.y - (LocalBoxSize.y / 2)},
+                                     {LocalBoxPos.x + (LocalBoxSize.x / 2), LocalBoxPos.y + (LocalBoxSize.y / 2)});
+
+  zoro::Vec2 mouse = {(float)esat::MousePositionX(), (float)esat::MousePositionY()};
+
+  if (mouse.x > min.x && mouse.x < max.x && mouse.y > min.y && mouse.y < max.y)
+  {
+    if (mouseType == -1)
+      return true;
+
+    if (esat::MouseButtonDown(mouseType))
+      return true;
+  }
+
+  return false;
+}
+
+void initBall(TBall **ball)
+{
+  for (int i = 0; i < (*(ball))->knPoints; i++)
+    (*(ball))->g_points[i] = {cosf((6.28f / (*(ball))->knPoints) * i), -sinf(((6.28f / (*(ball))->knPoints) * i)), 1.0f};
+  (*(ball))->onPlayer = true;
+  (*(ball))->size = 20.0f;
+}
+
+bool checkHitBox(zoro::Vec2 box1pos, zoro::Vec2 box1size, zoro::Vec2 box2pos, zoro::Vec2 box2size)
+{
+  if (box1pos.x - (box1size.x / 2) < box2pos.x + (box2size.x / 2) && box1pos.x + (box1size.x / 2) > box2pos.x - (box2size.x / 2) && box1pos.y - (box1size.y / 2) < box2pos.y + (box2size.y / 2) && box1pos.y + (box1size.y / 2) > box2pos.y - (box2size.y / 2))
+    return true;
+
+  return false;
+}
+
+bool brickColisionSpawnCheck(zoro::Vec2 pos)
+{
+  TBrick *b = g_Current_Level->bricks;
+  while (b != nullptr)
+  {
+    if (b != g_BrickLastSelected)
+    {
+      if (checkHitBox(b->pos, b->size, pos, g_BrickLastSelected->size))
+        return true;
+    }
+    b = b->next;
+  }
+  return false;
+}
+
 void PaintSquareToBox(zoro::Vec2 pos, zoro::Vec2 size, TColor border, TColor background, zoro::Vec2 BoxPos, zoro::Vec2 BoxSize)
 {
 
@@ -211,31 +280,74 @@ void PaintSquare(zoro::Vec2 pos, zoro::Vec2 size, TColor border, TColor backgrou
 }
 void PaintPlayer()
 {
-}
-void newBrick(TBrick **brickList, zoro::Vec2 pos)
-{
 
+  esat::DrawSetStrokeColor(210, 210, 210, 255);
+  esat::DrawSetFillColor(20, 20, 20, 50);
+  esat::DrawSolidPath(&g_Current_Level->player.ball->g_points[0].x, g_Current_Level->player.ball->knPoints);
+
+  PaintSquare(g_Current_Level->player.pos, g_Current_Level->player.size, g_Current_Level->player.color, g_Current_Level->player.color);
+}
+TBrick *addBrick(TBrick **brickList, zoro::Vec2 pos)
+{
   TBrick *nBrick = (TBrick *)malloc(sizeof(TBrick));
 
   nBrick->active = true;
-  nBrick->color = {(char)200, (char)200, (char)200, (char)200};
+  nBrick->color = {(char)200, (char)200, (char)200, (char)230};
   nBrick->lives = 1;
   nBrick->pos = pos;
   nBrick->reward = 10;
-  nBrick->size = {150, 50};
+  nBrick->size = {100, 45};
 
   nBrick->next = *brickList;
   *brickList = nBrick;
 
   printf("New brick\n");
+  return nBrick;
 }
 
+void deleteLevel(TLevel *level)
+{
+  TLevel *p = g_Level_List;
+  TLevel *temp;
+
+  if (p == level)
+  {
+    g_Level_List = g_Level_List->next;
+    return;
+  }
+
+  while (p->next != level)
+    p = p->next;
+
+  temp = p->next;
+  p->next = p->next->next;
+  free(temp);
+}
+void DeleteBrick(TBrick *brick)
+{
+  TBrick *p = g_Current_Level->bricks;
+  TBrick *temp;
+
+  if (p == brick)
+  {
+    g_Current_Level->bricks = g_Current_Level->bricks->next;
+    return;
+  }
+
+  while (p->next != brick)
+    p = p->next;
+
+  temp = p->next;
+  p->next = p->next->next;
+  free(temp);
+}
 void newEmptyLevel()
 {
   TLevel *p = (TLevel *)malloc(sizeof(TLevel));
   p->difficulty = countNumberOfLevels();
   p->bricks = nullptr;
-  newBrick(&p->bricks, {400, 400});
+  // addBrick(&p->bricks, {400, 400});
+
   p->player = kDefault_Player;
   p->background = kDefaultBackground;
   p->next = g_Level_List;
@@ -256,6 +368,7 @@ void callButtonFunction(int id)
   case 1:
     // Go to LEVEL SELECTOR
     g_Window_State = LEVELSELECTOR;
+    g_scrollbar_LEVELSELECTOR->quantity = countNumberOfLevels();
     break;
   case 2:
     // Go to GAME
@@ -365,29 +478,65 @@ void PaintLevel(TLevel *level, zoro::Vec2 origin, zoro::Vec2 size)
     TBrick *b = level->bricks;
     while (b != nullptr)
     {
-
-      PaintSquareToBox(b->pos, b->size, {(char)255, (char)255, (char)255, (char)255}, b->color, origin, size);
+      if (b == g_Brick_selected)
+      {
+        PaintSquareToBox(b->pos, b->size, {(char)255, (char)0, (char)0, (char)255}, b->color, origin, size);
+      }
+      else if (b == g_BrickLastSelected)
+      {
+        PaintSquareToBox(b->pos, b->size, {(char)0, (char)0, (char)255, (char)255}, b->color, origin, size);
+      }
+      else
+      {
+        PaintSquareToBox(b->pos, b->size, {(char)255, (char)255, (char)255, (char)255}, b->color, origin, size);
+      }
 
       b = b->next;
     }
   }
 }
 
+void startGame()
+{
+  if (g_Current_Level == nullptr)
+  {
+    printf("Level not found!\n");
+    return;
+  }
+
+  if (g_Current_Level->bricks == nullptr)
+  {
+    printf("Level empty!\n");
+    return;
+  }
+
+  g_Window_State = GAME;
+  g_Current_Level->player = kDefault_Player;
+  g_Current_Level->player.ball = (TBall *)malloc(sizeof(TBall));
+  initBall(&g_Current_Level->player.ball);
+}
+
 void ScrollbarController(TScrollbar *scrollbar)
 {
   float scrollRange = scrollbar->max_height - scrollbar->min_height;
-  float contentSize = (scrollbar->quantity * (scrollbar->boxheight + scrollbar->margin));
+  float contentSize = ((scrollbar->quantity / scrollbar->columns) * (scrollbar->boxheight + scrollbar->margin));
 
   float scrollerHeight = scrollRange * (scrollRange / contentSize);
 
   if (esat::MousePositionX() < scrollbar->xpos + scrollbar->width && esat::MousePositionX() > scrollbar->xpos && esat::MousePositionY() > scrollbar->min_height && esat::MousePositionY() < scrollbar->max_height && esat::MouseButtonDown(0))
   {
     g_mouseIsDown = true;
+    g_scrollIsSelected = true;
     g_mouseDownPos = {(float)esat::MousePositionX(), (float)esat::MousePositionY()};
   }
 
   if (esat::MouseButtonUp(0))
+  {
+    if (g_mouseIsDown)
+      g_scrollIsSelected = false;
+
     g_mouseIsDown = false;
+  }
 
   if (esat::IsSpecialKeyPressed(esat::kSpecialKey_Down))
   {
@@ -398,7 +547,7 @@ void ScrollbarController(TScrollbar *scrollbar)
     scrollbar->scrollOffset += 10 + (scrollbar->quantity * 2);
   }
 
-  if (g_mouseIsDown)
+  if (g_mouseIsDown && g_scrollIsSelected)
   {
     scrollbar->scrollOffset += g_mouseDownPos.y - esat::MousePositionY();
     g_mouseDownPos.y = esat::MousePositionY();
@@ -424,28 +573,56 @@ void ScrollbarController(TScrollbar *scrollbar)
   {
     esat::DrawSetStrokeColor(250, 250, 250, 255);
     esat::DrawSetFillColor(250, 250, 250, 180);
-    if (g_mouseIsDown)
+    if (g_mouseIsDown && g_scrollIsSelected)
       esat::DrawSetFillColor(210, 210, 250, 180);
     esat::DrawSolidPath(&g_Square_Points[0].x, 4);
   }
 }
-
-void Editor_UI()
+void EditorWindow()
 {
+
   // Scrollbar
   TLevel *p = g_Level_List;
+  bool emptyClick = false;
   for (int i = 0; i < g_scrollbar_EDITOR->quantity; i++)
   {
-    PaintSquare({895, 93 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset) + (i * g_scrollbar_EDITOR->margin)}, {160, 160}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
+    if (p == g_Current_Level)
+    {
+      PaintSquare({895, 93 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset) + (i * g_scrollbar_EDITOR->margin)}, {160, 160}, {(char)255, (char)255, (char)255, (char)255}, {(char)50, (char)50, (char)255, (char)100});
+    }
+    else
+    {
+      PaintSquare({895, 93 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset) + (i * g_scrollbar_EDITOR->margin)}, {160, 160}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
+    }
+
     PaintLevel(p, {895, 93 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset) + (i * g_scrollbar_EDITOR->margin)}, {160, 160});
 
-    if (checkMouseClick(810, 970, (13 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset)) + (i * g_scrollbar_EDITOR->margin), (173 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset)) + (i * g_scrollbar_EDITOR->margin), 0))
+    // SELECT LEVEL
+    if (esat::MouseButtonDown(0))
     {
-      printf("\n%d", p->difficulty);
-      g_Current_Level = p;
+      if (checkMouseClick(810, 970, (13 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset)) + (i * g_scrollbar_EDITOR->margin), (173 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset)) + (i * g_scrollbar_EDITOR->margin), 0))
+      {
+        // printf("\n%d---------------------------", p->difficulty);
+        g_Current_Level = p;
+        g_BrickLastSelected = nullptr;
+      }
+    }
+    // DELETE LEVEL
+    if (esat::MouseButtonDown(1))
+    {
+      if (checkMouseClick(810, 970, (13 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset)) + (i * g_scrollbar_EDITOR->margin), (173 + g_scrollbar_EDITOR->boxheight * i + (g_scrollbar_EDITOR->scrollOffset)) + (i * g_scrollbar_EDITOR->margin), 1))
+      {
+        if (g_Current_Level == p)
+          g_Current_Level = nullptr;
+
+        deleteLevel(p);
+        g_scrollbar_EDITOR->quantity = countNumberOfLevels();
+        g_BrickLastSelected = nullptr;
+      }
     }
     p = p->next;
   }
+
   PaintSquare({900, 5}, {200, 10}, kDefaultBackground, kDefaultBackground);
   PaintSquare({900, 985}, {200, 100}, kDefaultBackground, kDefaultBackground);
 
@@ -458,36 +635,119 @@ void Editor_UI()
   {
     zoro::Vec2 GlobalBoundingBox_min = {10, 10};
     zoro::Vec2 GlobalBoundingBox_max = {810, 810};
-    if (esat::MouseButtonUp(1))
+    if (esat::MouseButtonUp(0))
     {
       g_mouseIsDown = false;
       g_Brick_selected = nullptr;
     }
     if (g_Brick_selected != nullptr)
     {
-      g_Brick_selected->pos = zoro::CoordGlobalToLocalVec2({(float)esat::MousePositionX(), (float)esat::MousePositionY()}, GlobalBoundingBox_min, GlobalBoundingBox_max);
+
+      zoro::Vec2 mouse = zoro::CoordGlobalToLocalVec2({(float)esat::MousePositionX(), (float)esat::MousePositionY()},
+                                                      GlobalBoundingBox_min,
+                                                      GlobalBoundingBox_max);
+
+      mouse = zoro::CoordLocalToGlobalVec2(mouse,
+                                           {0, 0}, {kwidth, kheight});
+
+      if (!brickColisionSpawnCheck(mouse))
+      {
+        g_Brick_selected->pos = mouse;
+      }
+
+      if (g_Brick_selected->pos.x - (g_Brick_selected->size.x / 2) < 0)
+      {
+        g_Brick_selected->pos.x = (g_Brick_selected->size.x / 2);
+      }
+      if (g_Brick_selected->pos.x + (g_Brick_selected->size.x / 2) > kwidth)
+      {
+        g_Brick_selected->pos.x = kwidth - (g_Brick_selected->size.x / 2);
+      }
+
+      if (g_Brick_selected->pos.y - (g_Brick_selected->size.y / 2) < 0)
+      {
+        g_Brick_selected->pos.y = (g_Brick_selected->size.y / 2);
+      }
+      if (g_Brick_selected->pos.y + (g_Brick_selected->size.y / 2) > kheight)
+      {
+        g_Brick_selected->pos.y = kheight - (g_Brick_selected->size.y / 2);
+      }
+    }
+
+    if (g_BrickLastSelected != nullptr)
+    {
+      if (esat::IsKeyDown('D') && (g_BrickLastSelected->pos.x + (g_BrickLastSelected->size.x * 1.5) < kwidth) && !brickColisionSpawnCheck({g_BrickLastSelected->pos.x + g_BrickLastSelected->size.x, g_BrickLastSelected->pos.y}))
+      {
+        g_BrickLastSelected = addBrick(&g_Current_Level->bricks, {g_BrickLastSelected->pos.x + g_BrickLastSelected->size.x, g_BrickLastSelected->pos.y});
+      }
+      if (esat::IsKeyDown('A') && (g_BrickLastSelected->pos.x - (g_BrickLastSelected->size.x * 1.5) > 0) && !brickColisionSpawnCheck({g_BrickLastSelected->pos.x - g_BrickLastSelected->size.x, g_BrickLastSelected->pos.y}))
+      {
+        g_BrickLastSelected = addBrick(&g_Current_Level->bricks, {g_BrickLastSelected->pos.x - g_BrickLastSelected->size.x, g_BrickLastSelected->pos.y});
+      }
+      if (esat::IsKeyDown('S') && (g_BrickLastSelected->pos.y + (g_BrickLastSelected->size.y * 1.5) < kheight) && !brickColisionSpawnCheck({g_BrickLastSelected->pos.x, g_BrickLastSelected->pos.y + g_BrickLastSelected->size.y}))
+      {
+        g_BrickLastSelected = addBrick(&g_Current_Level->bricks, {g_BrickLastSelected->pos.x, g_BrickLastSelected->pos.y + g_BrickLastSelected->size.y});
+      }
+      if (esat::IsKeyDown('W') && (g_BrickLastSelected->pos.y - (g_BrickLastSelected->size.y * 1.5) > 0) && !brickColisionSpawnCheck({g_BrickLastSelected->pos.x, g_BrickLastSelected->pos.y - g_BrickLastSelected->size.y}))
+      {
+        g_BrickLastSelected = addBrick(&g_Current_Level->bricks, {g_BrickLastSelected->pos.x, g_BrickLastSelected->pos.y - g_BrickLastSelected->size.y});
+      }
     }
 
     PaintLevel(g_Current_Level, {410, 410}, {800, 800});
+    if (esat::MouseButtonDown(0))
+    {
+      emptyClick = true;
+    }
     if (g_Current_Level->bricks != nullptr)
     {
-      zoro::Vec2 brickPosGlobalmin;
-      zoro::Vec2 brickPosGlobalmax;
+      zoro::Vec2 brickPosGlobalPos;
+      zoro::Vec2 brickPosGlobalSize;
       TBrick *p = g_Current_Level->bricks;
+
       while (p != nullptr)
       {
-        brickPosGlobalmin = zoro::CoordGlobalToLocalVec2({p->pos.x - (p->size.x / 2), p->pos.y - (p->size.y / 2)},{0,0}, {kwidth,kheight});
-        brickPosGlobalmax = zoro::CoordGlobalToLocalVec2({p->pos.x + (p->size.x / 2), p->pos.y + (p->size.y / 2)},GlobalBoundingBox_min, GlobalBoundingBox_max);
-        
-        zoro::PrintVec2(brickPosGlobalmin);
-        if (checkMouseClick(brickPosGlobalmin.x,brickPosGlobalmax.x,brickPosGlobalmin.y,brickPosGlobalmax.y, 1))
+
+        if (checkMouseClickOnLocalCoordinates(p->pos, p->size, 0, {410, 410}, {800, 800}))
         {
+          emptyClick = false;
           printf("selected");
           g_Brick_selected = p;
+          g_BrickLastSelected = p;
           g_mouseIsDown = true;
           g_mouseDownPos = zoro::CoordGlobalToLocalVec2({(float)esat::MousePositionX(), (float)esat::MousePositionY()}, GlobalBoundingBox_min, GlobalBoundingBox_max);
         }
+        if (checkMouseClickOnLocalCoordinates(p->pos, p->size, 1, {410, 410}, {800, 800}))
+        {
+          emptyClick = false;
+          DeleteBrick(p);
+        }
         p = p->next;
+      }
+    }
+
+    if (g_Current_Level->bricks != nullptr)
+    {
+      if (emptyClick && checkMouseClick(GlobalBoundingBox_min.x + (g_Current_Level->bricks->size.x / 2), GlobalBoundingBox_max.x - (g_Current_Level->bricks->size.x / 2), GlobalBoundingBox_min.y + (g_Current_Level->bricks->size.y / 2), GlobalBoundingBox_max.y - (g_Current_Level->bricks->size.y / 2), -1))
+      {
+
+        zoro::Vec2 mousePosLocal = zoro::CoordGlobalToLocalVec2(zoro::CoordLocalToGlobalVec2({(float)esat::MousePositionX(), (float)esat::MousePositionY()}, {0, 0}, {kwidth, kheight}), GlobalBoundingBox_min, GlobalBoundingBox_max);
+
+        g_BrickLastSelected = g_Current_Level->bricks;
+
+        if (!brickColisionSpawnCheck(mousePosLocal))
+        {
+          g_BrickLastSelected = addBrick(&g_Current_Level->bricks, mousePosLocal);
+        }
+        g_BrickLastSelected = nullptr;
+      }
+    }
+    else
+    {
+      if (checkMouseClick(GlobalBoundingBox_min.x, GlobalBoundingBox_max.x, GlobalBoundingBox_min.y, GlobalBoundingBox_max.y, 0))
+      {
+        zoro::Vec2 mousePosLocal = zoro::CoordGlobalToLocalVec2(zoro::CoordLocalToGlobalVec2({(float)esat::MousePositionX(), (float)esat::MousePositionY()}, {0, 0}, {kwidth, kheight}), GlobalBoundingBox_min, GlobalBoundingBox_max);
+        g_BrickLastSelected = addBrick(&g_Current_Level->bricks, mousePosLocal);
       }
     }
   }
@@ -495,15 +755,66 @@ void Editor_UI()
 void MenuWindow()
 {
 }
-void EditorWindow()
-{
-  Editor_UI();
-}
+
 void GameWindow()
 {
+
+  if (esat::IsKeyDown('B'))
+    g_Window_State = MENU;
+  printf("dd\n");
+  PaintLevel(g_Current_Level, {500, 500}, {1000, 1000});
+  printf("aa\n");
+  PaintPlayer();
+  printf("vv\n");
 }
 void LevelSelectorWindow()
 {
+  PaintSquare({500, 475}, {990, 940}, {(char)255, (char)255, (char)255, (char)255}, {(char)255, (char)255, (char)255, (char)10});
+
+  TLevel *p = g_Level_List;
+  int column = 0;
+  int row = 0;
+  zoro::Vec2 boxPos, boxSize;
+
+  for (int i = 0; i < g_scrollbar_LEVELSELECTOR->quantity; i++)
+  {
+    boxPos = {105 + (column * g_scrollbar_LEVELSELECTOR->boxheight) + (column * g_scrollbar_LEVELSELECTOR->margin), 105 + g_scrollbar_LEVELSELECTOR->boxheight * row + (g_scrollbar_LEVELSELECTOR->scrollOffset) + (row * g_scrollbar_LEVELSELECTOR->margin)};
+    boxSize = {g_scrollbar_LEVELSELECTOR->boxheight, g_scrollbar_LEVELSELECTOR->boxheight};
+
+    PaintSquare(boxPos, boxSize,
+                {(char)255, (char)255, (char)255, (char)255},
+                {(char)255, (char)255, (char)255, (char)10});
+
+    PaintLevel(p, boxPos, boxSize);
+
+    // SELECT LEVEL
+    if (esat::MouseButtonDown(0))
+    {
+      if (checkMouseClick(boxPos.x - (boxSize.x / 2),
+                          boxPos.x + (boxSize.x / 2),
+                          boxPos.y - (boxSize.y / 2),
+                          boxPos.y + (boxSize.y / 2),
+                          0))
+      {
+        g_Current_Level = p;
+        // Start game
+        // ...
+        printf("start: %d", g_Current_Level->difficulty);
+        startGame();
+      }
+    }
+
+    column++;
+    if (column >= g_scrollbar_LEVELSELECTOR->columns)
+    {
+      column = 0;
+      row++;
+    }
+
+    p = p->next;
+  }
+  ScrollbarController(g_scrollbar_LEVELSELECTOR);
+  PaintSquare({500, 1000}, {1000, 110}, kDefaultBackground, kDefaultBackground);
 }
 
 TButton *addButtonToList(TButton b)
@@ -588,6 +899,19 @@ void init_UI()
   g_scrollbar_EDITOR->width = 13;
   g_scrollbar_EDITOR->xpos = 975;
   g_scrollbar_EDITOR->margin = 3;
+  g_scrollbar_EDITOR->columns = 1;
+
+  g_scrollbar_LEVELSELECTOR = (TScrollbar *)malloc(1 * sizeof(TScrollbar));
+
+  g_scrollbar_LEVELSELECTOR->boxheight = 180;
+  g_scrollbar_LEVELSELECTOR->max_height = 935;
+  g_scrollbar_LEVELSELECTOR->min_height = 12;
+  g_scrollbar_LEVELSELECTOR->quantity = 0;
+  g_scrollbar_LEVELSELECTOR->scrollOffset = 0;
+  g_scrollbar_LEVELSELECTOR->width = 20;
+  g_scrollbar_LEVELSELECTOR->xpos = 965;
+  g_scrollbar_LEVELSELECTOR->margin = 10;
+  g_scrollbar_LEVELSELECTOR->columns = 5;
 }
 
 void init_Game()
@@ -597,9 +921,9 @@ void init_Game()
   kDefault_Player.ball = nullptr;
   kDefault_Player.color = {(char)255, (char)255, (char)255, (char)255};
   kDefault_Player.lives = 1;
-  kDefault_Player.pos = {500, 850};
+  kDefault_Player.pos = {500, 920};
   kDefault_Player.score = 0;
-  kDefault_Player.size = {200, 80};
+  kDefault_Player.size = {150, 25};
 
   init_UI();
 }
