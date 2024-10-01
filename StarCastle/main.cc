@@ -872,6 +872,7 @@ void initAdminInterface()
   initAdminButton(&admin_birthday, {545, 610}, {500, 40}, "BIRTHDAY dd/mm/yyyy");
   initAdminButton(&admin_highscoreDate, {545, 680}, {500, 40}, "HIGHSCORE DATE dd/mm/yyyy");
   initAdminButton(&admin_highscore, {545, 750}, {500, 40}, "HIGHSCORE");
+
 }
 
 void init()

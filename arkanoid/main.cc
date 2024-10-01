@@ -249,11 +249,10 @@ bool brickColisionSpawnCheck(zoro::Vec2 pos)
   return false;
 }
 
-bool colisionBallSquare(TBall *ball, zoro::Vec2 pos, zoro::Vec2 size)
+zoro::Vec2 colisionBallSquare(TBall *ball, zoro::Vec2 pos, zoro::Vec2 size)
 {
-
   if (ball == nullptr)
-    return false;
+    return {99.0f, 99.0f};
 
   zoro::Vec2 VDistance = zoro::SubtractVec2(ball->pos, pos);
 
@@ -276,19 +275,19 @@ bool colisionBallSquare(TBall *ball, zoro::Vec2 pos, zoro::Vec2 size)
     {
       if (!checkHitBox(zoro::SumVec2(zoro::SumVec2(pos, VDistance), zoro::NormalizeVec2(zoro::LeftPerpendicularVec2(VDistance))), {1, 1}, pos, size))
       {
-        ball->dir = zoro::NormalizeVec2(zoro::LeftPerpendicularVec2(VDistance));
+        return zoro::NormalizeVec2(zoro::LeftPerpendicularVec2(VDistance));
       }
       else
       {
-        ball->dir = zoro::NormalizeVec2(zoro::RightPerpendicularVec2(VDistance));
+        return zoro::NormalizeVec2(zoro::RightPerpendicularVec2(VDistance));
       }
     }
     else
     {
-      ball->dir = zoro::NormalizeVec2(VDistance);
+      return zoro::NormalizeVec2(VDistance);
     }
   }
-  return false;
+  return {99.0f, 99.0f};
 }
 
 void Ball()
@@ -317,40 +316,60 @@ void Ball()
       if (g_Current_Level->bricks != nullptr && !p->onPlayer)
       {
         zoro::Vec2 VDistance;
+        zoro::Vec2 newDir;
         TBrick *br = g_Current_Level->bricks;
         while (br != nullptr)
         {
-          if (colisionBallSquare(p, br->pos, br->size))
+          if (br->active)
           {
-            DeleteBrick(br);
+            newDir = colisionBallSquare(p, br->pos, br->size);
+            if (zoro::MagnitudeVec2(newDir) < 2.0f)
+            {
+              p->dir = newDir;
+              g_Current_Level->player.score += br->reward;
+              br->active = false;
+            }
           }
 
           br = br->next;
+        }
+
+        newDir = colisionBallSquare(p, g_Current_Level->player.pos, g_Current_Level->player.size);
+
+        if (zoro::MagnitudeVec2(newDir) < 2.0f && p->pos.y < g_Current_Level->player.pos.y)
+        {
+          p->dir.y *= -1;
+          p->dir.x += g_Current_Level->player.acceleration * 0.6f;
+          p->dir = zoro::NormalizeVec2(p->dir);
+          p->pos.y = g_Current_Level->player.pos.y - (g_Current_Level->player.size.y / 2) - p->size;
         }
       }
 
       p->pos = zoro::SumVec2(p->pos, zoro::ScaleVec2(p->dir, p->speed));
 
-      if (p->pos.x + p->size > kwidth){
+      if (p->pos.x + p->size > kwidth)
+      {
         p->dir.x *= -1;
         p->pos.x = kwidth - p->size - 1;
       }
-        
 
-      if (p->pos.x - p->size < 0){
+      if (p->pos.x - p->size < 0)
+      {
         p->dir.x *= -1;
         p->pos.x = p->size + 1;
       }
-        
 
-      if (p->pos.y - p->size < 0){
+      if (p->pos.y - p->size < 0)
+      {
         p->dir.y *= -1;
         p->pos.y = p->size + 1;
       }
-        
 
       if (p->pos.y + p->size > kheight)
-        p->dir.y *= -1;
+      {
+        p->onPlayer = true;
+        g_Current_Level->player.lives--;
+      }
     }
 
     p->M = zoro::MatIdentity3();
@@ -503,6 +522,7 @@ void newEmptyLevel()
   p->bricks = nullptr;
   // addBrick(&p->bricks, {400, 400});
   p->player = kDefault_Player;
+  p->player.lives = 3;
   p->player.ball = nullptr;
   p->background = kDefaultBackground;
   p->next = g_Level_List;
@@ -645,7 +665,15 @@ void PaintLevel(TLevel *level, zoro::Vec2 origin, zoro::Vec2 size)
       }
       else
       {
-        PaintSquareToBox(b->pos, b->size, {(char)255, (char)255, (char)255, (char)255}, b->color, origin, size);
+        if (g_Window_State == GAME)
+        {
+          if (b->active)
+            PaintSquareToBox(b->pos, b->size, {(char)255, (char)255, (char)255, (char)255}, b->color, origin, size);
+        }
+        else
+        {
+          PaintSquareToBox(b->pos, b->size, {(char)255, (char)255, (char)255, (char)255}, b->color, origin, size);
+        }
       }
 
       b = b->next;
@@ -653,7 +681,7 @@ void PaintLevel(TLevel *level, zoro::Vec2 origin, zoro::Vec2 size)
   }
 }
 
-void startGame()
+void startGame(int baseScore)
 {
   if (g_Current_Level == nullptr)
   {
@@ -668,9 +696,17 @@ void startGame()
   }
   g_Brick_selected = nullptr;
   g_BrickLastSelected = nullptr;
+  TBrick *br = g_Current_Level->bricks;
+
+  while (br != nullptr)
+  {
+    br->active = true;
+    br = br->next;
+  }
 
   g_Window_State = GAME;
   g_Current_Level->player = kDefault_Player;
+  g_Current_Level->player.score = baseScore;
   printf("INIT BALL\n");
   initBall(&g_Current_Level->player.ball);
   printf("Game Started\n");
@@ -914,10 +950,76 @@ void EditorWindow()
 }
 void MenuWindow()
 {
+  esat::DrawSetFillColor(150, 150, 255, 100);
+  esat::DrawSetStrokeColor(255, 255, 255, 255);
+  esat::DrawSetTextSize(143);
+  esat::DrawText(215, 353, "BREAKOUT");
+  esat::DrawSetFillColor(255, 255, 255, 255);
+  esat::DrawSetTextSize(140);
+  esat::DrawText(220, 350, "BREAKOUT");
+  esat::DrawSetTextSize(30);
+  esat::DrawText(380, 950, "Guillermo Bosca");
+}
+
+void PaintGameUI()
+{
+  char *TextBuffer = (char *)malloc(30 * sizeof(char));
+  esat::DrawSetFillColor(255, 255, 255, 255);
+  esat::DrawSetStrokeColor(255, 255, 255, 255);
+  esat::DrawSetTextSize(35);
+  esat::DrawText(15, 35, "SCORE");
+  itoa(g_Current_Level->player.score, TextBuffer, 10);
+  esat::DrawText(130, 35, TextBuffer);
+
+  esat::DrawText(860, 35, "LIVES");
+  itoa(g_Current_Level->player.lives, TextBuffer, 10);
+  esat::DrawText(965, 35, TextBuffer);
+}
+
+bool activeBricks(TBrick *bricks)
+{
+  TBrick *b = bricks;
+  if (bricks == nullptr)
+    return false;
+
+  bool activeFound = false;
+
+  while (b != nullptr && !activeFound)
+  {
+    if (b->active)
+      activeFound = true;
+
+    b = b->next;
+  }
+  return activeFound;
 }
 
 void GameWindow()
 {
+  if (!activeBricks(g_Current_Level->bricks))
+  {
+    int baseScore = g_Current_Level->player.score;
+    if (g_Current_Level->next != nullptr)
+    {
+      g_Current_Level = g_Current_Level->next;
+    }
+    else
+    {
+      if (g_Current_Level == g_Level_List)
+      {
+        g_Window_State = MENU;
+      }
+      else
+      {
+        g_Current_Level = g_Level_List;
+      }
+    }
+    startGame(baseScore);
+    return;
+  }
+
+  if (g_Current_Level->player.lives < 0)
+    g_Window_State = MENU;
 
   if (esat::IsKeyDown('B'))
     g_Window_State = MENU;
@@ -925,6 +1027,7 @@ void GameWindow()
   PaintLevel(g_Current_Level, {500, 500}, {1000, 1000});
 
   PaintPlayer();
+  PaintGameUI();
 }
 void LevelSelectorWindow()
 {
@@ -959,7 +1062,7 @@ void LevelSelectorWindow()
         // Start game
         // ...
         printf("start: %d", g_Current_Level->difficulty);
-        startGame();
+        startGame(0);
       }
     }
 
