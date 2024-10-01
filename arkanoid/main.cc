@@ -52,6 +52,7 @@ struct TBall
   bool onPlayer;
   zoro::Vec2 pos;
   zoro::Vec2 dir;
+  zoro::Mat3 M;
   float size;
   float speed;
   zoro::Vec3 g_points[16];
@@ -63,9 +64,11 @@ struct TPlayer
 {
   int score;
   int lives;
-  float velocity;
+  float acceleration;
+  float speed;
   zoro::Vec2 pos;
   zoro::Vec2 size;
+  zoro::Vec2 dir;
   TColor color;
   TBall *ball;
 };
@@ -189,10 +192,21 @@ bool checkMouseClickOnLocalCoordinates(zoro::Vec2 TargetPos, zoro::Vec2 TargetSi
 
 void initBall(TBall **ball)
 {
-  for (int i = 0; i < (*(ball))->knPoints; i++)
-    (*(ball))->g_points[i] = {cosf((6.28f / (*(ball))->knPoints) * i), -sinf(((6.28f / (*(ball))->knPoints) * i)), 1.0f};
-  (*(ball))->onPlayer = true;
-  (*(ball))->size = 20.0f;
+  TBall *nBall = (TBall *)malloc(sizeof(TBall));
+  nBall->knPoints = 16;
+  nBall->next = nullptr;
+  nBall->onPlayer = true;
+  nBall->pos = {500, 500};
+  nBall->size = 20.0f;
+  nBall->speed = 10.0f;
+
+  for (int i = 0; i < nBall->knPoints; i++)
+  {
+    nBall->g_points[i] = {cosf((6.28f / nBall->knPoints) * i), sinf(((6.28f / nBall->knPoints) * i)), 1.0f};
+  }
+
+  nBall->next = *ball;
+  *ball = nBall;
 }
 
 bool checkHitBox(zoro::Vec2 box1pos, zoro::Vec2 box1size, zoro::Vec2 box2pos, zoro::Vec2 box2size)
@@ -202,7 +216,24 @@ bool checkHitBox(zoro::Vec2 box1pos, zoro::Vec2 box1size, zoro::Vec2 box2pos, zo
 
   return false;
 }
+void DeleteBrick(TBrick *brick)
+{
+  TBrick *p = g_Current_Level->bricks;
+  TBrick *temp;
 
+  if (p == brick)
+  {
+    g_Current_Level->bricks = g_Current_Level->bricks->next;
+    return;
+  }
+
+  while (p->next != brick)
+    p = p->next;
+
+  temp = p->next;
+  p->next = p->next->next;
+  free(temp);
+}
 bool brickColisionSpawnCheck(zoro::Vec2 pos)
 {
   TBrick *b = g_Current_Level->bricks;
@@ -216,6 +247,128 @@ bool brickColisionSpawnCheck(zoro::Vec2 pos)
     b = b->next;
   }
   return false;
+}
+
+bool colisionBallSquare(TBall *ball, zoro::Vec2 pos, zoro::Vec2 size)
+{
+
+  if (ball == nullptr)
+    return false;
+
+  zoro::Vec2 VDistance = zoro::SubtractVec2(ball->pos, pos);
+
+  if (VDistance.x > size.x / 2)
+    VDistance.x = size.x / 2;
+  if (VDistance.x < -size.x / 2)
+    VDistance.x = -size.x / 2;
+  if (VDistance.y > size.y / 2)
+    VDistance.y = size.y / 2;
+  if (VDistance.y < -size.y / 2)
+    VDistance.y = -size.y / 2;
+
+  esat::DrawSetStrokeColor(255, 0, 0, 255);
+  esat::DrawLine(VDistance.x + pos.x, VDistance.y + pos.y, pos.x, pos.y);
+
+  if (zoro::MagnitudeVec2(VDistance) + ball->size / 2 > zoro::MagnitudeVec2(zoro::SubtractVec2(ball->pos, pos)))
+  {
+
+    if (zoro::DotVec2(zoro::NormalizeVec2(zoro::ScaleVec2(VDistance, -1)), zoro::NormalizeVec2(ball->dir)) > 0.5f)
+    {
+      if (!checkHitBox(zoro::SumVec2(zoro::SumVec2(pos, VDistance), zoro::NormalizeVec2(zoro::LeftPerpendicularVec2(VDistance))), {1, 1}, pos, size))
+      {
+        ball->dir = zoro::NormalizeVec2(zoro::LeftPerpendicularVec2(VDistance));
+      }
+      else
+      {
+        ball->dir = zoro::NormalizeVec2(zoro::RightPerpendicularVec2(VDistance));
+      }
+    }
+    else
+    {
+      ball->dir = zoro::NormalizeVec2(VDistance);
+    }
+  }
+  return false;
+}
+
+void Ball()
+{
+  TBall *balls = g_Current_Level->player.ball;
+  TBall *p = balls;
+
+  if (balls == nullptr)
+  {
+    printf("ball not painting cause stupid\n");
+    return;
+  }
+
+  while (p != nullptr)
+  {
+
+    if (p->onPlayer)
+    {
+      p->pos = {g_Current_Level->player.pos.x, g_Current_Level->player.pos.y - g_Current_Level->player.ball->size - (g_Current_Level->player.size.y / 2)};
+      p->dir = zoro::NormalizeVec2(g_Current_Level->player.dir);
+      if (esat::IsKeyDown('X'))
+        p->onPlayer = false;
+    }
+    else
+    {
+      if (g_Current_Level->bricks != nullptr && !p->onPlayer)
+      {
+        zoro::Vec2 VDistance;
+        TBrick *br = g_Current_Level->bricks;
+        while (br != nullptr)
+        {
+          if (colisionBallSquare(p, br->pos, br->size))
+          {
+            DeleteBrick(br);
+          }
+
+          br = br->next;
+        }
+      }
+
+      p->pos = zoro::SumVec2(p->pos, zoro::ScaleVec2(p->dir, p->speed));
+
+      if (p->pos.x + p->size > kwidth){
+        p->dir.x *= -1;
+        p->pos.x = kwidth - p->size - 1;
+      }
+        
+
+      if (p->pos.x - p->size < 0){
+        p->dir.x *= -1;
+        p->pos.x = p->size + 1;
+      }
+        
+
+      if (p->pos.y - p->size < 0){
+        p->dir.y *= -1;
+        p->pos.y = p->size + 1;
+      }
+        
+
+      if (p->pos.y + p->size > kheight)
+        p->dir.y *= -1;
+    }
+
+    p->M = zoro::MatIdentity3();
+    p->M = zoro::Mat3Multiply(zoro::Mat3Translate(p->pos), p->M);
+    p->M = zoro::Mat3Multiply(zoro::Mat3Scale(p->size, p->size), p->M);
+
+    for (int i = 0; i < p->knPoints; i++)
+    {
+      zoro::Vec3 tmp = zoro::Mat3TransformVec3(p->M, p->g_points[i]);
+      p->dr_points[i] = {tmp.x, tmp.y};
+    }
+
+    esat::DrawSetStrokeColor(210, 210, 210, 50);
+    esat::DrawSetFillColor(180, 180, 220, 255);
+    esat::DrawSolidPath(&p->dr_points[0].x, p->knPoints);
+
+    p = p->next;
+  }
 }
 
 void PaintSquareToBox(zoro::Vec2 pos, zoro::Vec2 size, TColor border, TColor background, zoro::Vec2 BoxPos, zoro::Vec2 BoxSize)
@@ -281,9 +434,28 @@ void PaintSquare(zoro::Vec2 pos, zoro::Vec2 size, TColor border, TColor backgrou
 void PaintPlayer()
 {
 
-  esat::DrawSetStrokeColor(210, 210, 210, 255);
-  esat::DrawSetFillColor(20, 20, 20, 50);
-  esat::DrawSolidPath(&g_Current_Level->player.ball->g_points[0].x, g_Current_Level->player.ball->knPoints);
+  g_Current_Level->player.acceleration = 0.0f;
+  if (esat::IsKeyPressed('A') || esat::IsSpecialKeyPressed(esat::kSpecialKey_Left))
+  {
+    g_Current_Level->player.acceleration = -1.0f;
+    g_Current_Level->player.dir.x = -1.0f;
+  }
+
+  if (esat::IsKeyPressed('D') || esat::IsSpecialKeyPressed(esat::kSpecialKey_Right))
+  {
+    g_Current_Level->player.dir.x = 1.0f;
+    g_Current_Level->player.acceleration = +1.0f;
+  }
+
+  g_Current_Level->player.speed = g_Current_Level->player.acceleration + (g_Current_Level->player.speed * 0.93);
+  g_Current_Level->player.pos.x += g_Current_Level->player.speed;
+
+  if (g_Current_Level->player.pos.x + (g_Current_Level->player.size.x / 2) > kwidth)
+    g_Current_Level->player.pos.x = -2 + kwidth - (g_Current_Level->player.size.x / 2);
+  if (g_Current_Level->player.pos.x - (g_Current_Level->player.size.x / 2) < 0)
+    g_Current_Level->player.pos.x = (g_Current_Level->player.size.x / 2) + 2;
+
+  Ball();
 
   PaintSquare(g_Current_Level->player.pos, g_Current_Level->player.size, g_Current_Level->player.color, g_Current_Level->player.color);
 }
@@ -323,32 +495,15 @@ void deleteLevel(TLevel *level)
   p->next = p->next->next;
   free(temp);
 }
-void DeleteBrick(TBrick *brick)
-{
-  TBrick *p = g_Current_Level->bricks;
-  TBrick *temp;
 
-  if (p == brick)
-  {
-    g_Current_Level->bricks = g_Current_Level->bricks->next;
-    return;
-  }
-
-  while (p->next != brick)
-    p = p->next;
-
-  temp = p->next;
-  p->next = p->next->next;
-  free(temp);
-}
 void newEmptyLevel()
 {
   TLevel *p = (TLevel *)malloc(sizeof(TLevel));
   p->difficulty = countNumberOfLevels();
   p->bricks = nullptr;
   // addBrick(&p->bricks, {400, 400});
-
   p->player = kDefault_Player;
+  p->player.ball = nullptr;
   p->background = kDefaultBackground;
   p->next = g_Level_List;
   g_Level_List = p;
@@ -377,6 +532,8 @@ void callButtonFunction(int id)
   case 3:
     // Go to MENU
     g_Window_State = MENU;
+    g_Brick_selected = nullptr;
+    g_BrickLastSelected = nullptr;
     break;
   case 4:
     // Add new empty level
@@ -509,11 +666,14 @@ void startGame()
     printf("Level empty!\n");
     return;
   }
+  g_Brick_selected = nullptr;
+  g_BrickLastSelected = nullptr;
 
   g_Window_State = GAME;
   g_Current_Level->player = kDefault_Player;
-  g_Current_Level->player.ball = (TBall *)malloc(sizeof(TBall));
+  printf("INIT BALL\n");
   initBall(&g_Current_Level->player.ball);
+  printf("Game Started\n");
 }
 
 void ScrollbarController(TScrollbar *scrollbar)
@@ -761,11 +921,10 @@ void GameWindow()
 
   if (esat::IsKeyDown('B'))
     g_Window_State = MENU;
-  printf("dd\n");
+
   PaintLevel(g_Current_Level, {500, 500}, {1000, 1000});
-  printf("aa\n");
+
   PaintPlayer();
-  printf("vv\n");
 }
 void LevelSelectorWindow()
 {
@@ -924,6 +1083,7 @@ void init_Game()
   kDefault_Player.pos = {500, 920};
   kDefault_Player.score = 0;
   kDefault_Player.size = {150, 25};
+  kDefault_Player.dir = {1, -1};
 
   init_UI();
 }
@@ -936,7 +1096,7 @@ int esat::main(int argc, char **argv)
   WindowSetMouseVisibility(true);
 
   init_Game();
-  printf("PROGRAM START");
+  printf("PROGRAM START :3");
 
   while (esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape))
   {
@@ -965,9 +1125,7 @@ int esat::main(int argc, char **argv)
       printf("Error with current window state. \n^w^\n");
       break;
     }
-
     PaintInterface();
-
     // --------------
     esat::DrawEnd();
     do
