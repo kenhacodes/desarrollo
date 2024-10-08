@@ -69,5 +69,11 @@
     "xlocnum": "cpp",
     "xtr1common": "cpp"
   },
-  "C_Cpp.errorSquiggles": "enabled"
+  "C_Cpp.errorSquiggles": "enabled",
+  "editor.rulers": [
+    80,120
+  ],
+  "workbench.colorCustomizations": {
+    "editorRuler.foreground": "#ff404038"
+}
 }
