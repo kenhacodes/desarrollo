@@ -6,3 +6,7 @@ Asteroids/.vs/main/v16/Browse.VC.db-wal
 Asteroids/.vs/main/v16/Browse.VC.db
 Asteroids/.vs/main/v16/.suo
 Asteroids/.vs/main/v16/Browse.VC.db
+lib_graph/
+arkanoid/main.ilk
+arkanoid/main.obj
+arkanoid/main.pdb
